@@ -15,17 +15,17 @@ const isWindows = process.platform === 'win32';
 const vitest = spawnSync(
   isWindows ? 'npx.cmd' : 'npx',
   ['vitest', 'run', ...args],
-  { stdio: 'inherit' },
+  { stdio: 'inherit', shell: isWindows },
 );
 
 const rebuild = spawnSync(
-  isWindows ? 'npx.cmd' : 'npx',
-  ['electron-builder', 'install-app-deps'],
-  { stdio: 'inherit' },
+  isWindows ? 'npm.cmd' : 'npm',
+  ['run', 'rebuild:electron'],
+  { stdio: 'inherit', shell: isWindows },
 );
 
 if (rebuild.status !== 0) {
-  console.error('[run-tests] WARNING: rebuild:electron failed; you may need to run `npm run rebuild:electron` manually before `npm run dev`.');
+  console.error('[run-tests] WARNING: rebuild:electron failed (exit ' + rebuild.status + '). Run `npm run rebuild:electron` manually before `npm run dev`.');
 }
 
 process.exit(vitest.status ?? 0);
