@@ -6,6 +6,7 @@
   "type": "module",
   "author": "Remirror",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
