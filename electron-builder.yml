@@ -1,0 +1,19 @@
+appId: com.remirror.app
+productName: Remirror
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - out/**/*
+  - resources/icons/**/*
+asar: true
+asarUnpack:
+  - "**/*.node"
+win:
+  target: nsis
+  icon: resources/icons/app.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
