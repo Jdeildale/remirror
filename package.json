@@ -1,0 +1,45 @@
+{
+  "name": "remirror",
+  "version": "0.1.0",
+  "description": "ADHD-aware screen-attention recorder. All data local.",
+  "main": "out/main/index.js",
+  "type": "module",
+  "author": "Remirror",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:win": "npm run build && electron-builder --win --config electron-builder.yml",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
+    "better-sqlite3": "^11.5.0",
+    "electron-log": "^5.2.0",
+    "electron-store": "^8.2.0",
+    "get-windows": "^9.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ulid": "^2.3.0",
+    "uiohook-napi": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.0.5",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}
