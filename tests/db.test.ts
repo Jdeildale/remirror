@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { openDatabase, closeDatabase } from '@main/db/index';
+import { openDatabase, closeDatabase, getDatabase } from '@main/db/index';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -44,5 +44,24 @@ describe('openDatabase', () => {
     expect(orphan.end_time).not.toBeNull();
     // Capped at start + 5min
     expect(orphan.end_time).toBe(oneHourAgo + 5 * 60 * 1000);
+  });
+});
+
+describe('seed exclusions migration', () => {
+  it('seeds default exclusions on first run', () => {
+    const db = openDatabase(path.join(tmpDir, 'test.db'));
+    const count = (db.prepare('SELECT COUNT(*) as c FROM exclusions').get() as { c: number }).c;
+    expect(count).toBeGreaterThanOrEqual(16);
+  });
+
+  it('does not duplicate exclusions on second open', () => {
+    const dbPath = path.join(tmpDir, 'test.db');
+    openDatabase(dbPath);
+    const firstCount = (getDatabase().prepare('SELECT COUNT(*) as c FROM exclusions').get() as { c: number }).c;
+    closeDatabase();
+
+    openDatabase(dbPath);
+    const secondCount = (getDatabase().prepare('SELECT COUNT(*) as c FROM exclusions').get() as { c: number }).c;
+    expect(secondCount).toBe(firstCount);
   });
 });
