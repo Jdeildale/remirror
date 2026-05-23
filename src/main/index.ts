@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import { BRAND } from '@shared/branding';
-import log from './log';
+import log, { configureFileTransport } from './log';
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -11,6 +11,7 @@ if (!gotLock) {
 app.setAppUserModelId(BRAND.appId);
 
 app.whenReady().then(() => {
+  configureFileTransport(app.getPath('userData'));
   log.info(`${BRAND.appName} main process ready`);
 });
 
