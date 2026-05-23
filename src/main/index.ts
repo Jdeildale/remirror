@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { BRAND } from '@shared/branding';
+import log from './log';
 
-// Single-instance lock — non-negotiable. Two instances would corrupt the DB.
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -11,9 +11,9 @@ if (!gotLock) {
 app.setAppUserModelId(BRAND.appId);
 
 app.whenReady().then(() => {
-  console.log(`[${BRAND.appName}] main process ready`);
+  log.info(`${BRAND.appName} main process ready`);
 });
 
 app.on('window-all-closed', () => {
-  // Remirror lives in the tray — do nothing on window close.
+  /* tray-resident; do nothing */
 });
