@@ -91,7 +91,4 @@ CREATE TABLE weekly_mirrors (
   top_insight TEXT
 );
 
-CREATE TABLE _migrations (
-  filename TEXT PRIMARY KEY,
-  applied_at INTEGER NOT NULL
-);
+-- _migrations table is created and managed by the migration runner (migrate.ts)
