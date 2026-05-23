@@ -7,12 +7,19 @@
   "author": "Remirror",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "^20.18.0"
+  },
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "npm run rebuild:electron && electron-vite dev",
     "build": "electron-vite build",
-    "build:win": "npm run build && electron-builder --win --config electron-builder.yml",
+    "build:win": "npm run rebuild:electron && npm run build && electron-builder --win --config electron-builder.yml",
+    "pretest": "npm run rebuild:node",
     "test": "vitest run",
-    "test:watch": "vitest",
+    "posttest": "npm run rebuild:electron",
+    "test:watch": "npm run rebuild:node && vitest",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "rebuild:electron": "electron-builder install-app-deps",
     "typecheck": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps"
   },
