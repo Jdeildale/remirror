@@ -18,7 +18,7 @@
     "test": "node scripts/run-tests.mjs",
     "test:watch": "npm run rebuild:node && vitest",
     "rebuild:node": "npm rebuild better-sqlite3",
-    "rebuild:electron": "electron-builder install-app-deps",
+    "rebuild:electron": "electron-rebuild -f --build-from-source",
     "typecheck": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -35,6 +35,7 @@
     "ulid": "^2.3.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
