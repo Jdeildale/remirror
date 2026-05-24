@@ -13,7 +13,7 @@ export function createMainBrowserWindow(): BrowserWindow {
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true,
     },

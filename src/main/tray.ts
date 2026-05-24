@@ -27,7 +27,8 @@ const TOOLTIP: Record<EngineStatus, string> = {
 };
 
 export function createTray(engine: CaptureEngine): Tray {
-  const iconPath = path.join(__dirname, '../resources/icons/tray.ico');
+  // From out/main/, the icons live at <project-root>/resources/icons/tray.ico — two levels up.
+  const iconPath = path.join(__dirname, '../../resources/icons/tray.ico');
   const image = nativeImage.createFromPath(iconPath);
   tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
   tray.setToolTip(BRAND.appName);

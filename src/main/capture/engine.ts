@@ -16,6 +16,12 @@ const HEARTBEAT_INTERVAL_MS = 90_000;
 const PAUSE_THRESHOLD_SEC = 120;
 const CLOSE_THRESHOLD_SEC = 600;
 
+// Periodic tick runs even without user input so idle-state evaluation actually
+// fires when the user is genuinely away. Without this, a tick only runs in
+// response to input — but the moment input arrives, getSystemIdleTime() resets
+// to ~0, and we'd never observe the long-idle states (pause/close).
+const PERIODIC_TICK_MS = 30_000;
+
 interface ActiveSessionState {
   id: string;
   startTime: number;
@@ -35,6 +41,7 @@ export class CaptureEngine extends EventEmitter {
   private inputGate = new InputGate();
   private tickPending = false;
   private lastTickAt = 0;
+  private periodicTimer: NodeJS.Timeout | null = null;
 
   constructor(private db: Database.Database) {
     super();
@@ -56,6 +63,7 @@ export class CaptureEngine extends EventEmitter {
     this.reloadProjects();
     this.reloadExclusions();
     this.inputGate.start();
+    this.startPeriodicTimer();
     this.status = 'active';
     this.emit('status', this.status);
     log.info('CaptureEngine started');
@@ -63,10 +71,13 @@ export class CaptureEngine extends EventEmitter {
 
   pause(): void {
     if (this.status === 'paused') return;
-    this.closeActive(Date.now());
+    this.stopPeriodicTimer();
     this.inputGate.stop();
+    // Set status (and notify) BEFORE closing the active session so renderers
+    // see the pause first, then the session-list refresh — not the other way around.
     this.status = 'paused';
     this.emit('status', this.status);
+    this.closeActive(Date.now());
     log.info('CaptureEngine paused');
   }
 
@@ -76,10 +87,11 @@ export class CaptureEngine extends EventEmitter {
   }
 
   stop(): void {
-    this.closeActive(Date.now());
+    this.stopPeriodicTimer();
     this.inputGate.stop();
     this.status = 'stopped';
     this.emit('status', this.status);
+    this.closeActive(Date.now());
     log.info('CaptureEngine stopped');
   }
 
@@ -87,15 +99,32 @@ export class CaptureEngine extends EventEmitter {
     return this.status;
   }
 
-  // Called by lifecycle handlers (suspend / lock-screen / before-quit).
+  // Called by lifecycle handlers (suspend / lock-screen).
   closeActiveNow(reason: string): void {
     if (!this.active) return;
     log.info(`Closing active session: ${reason}`);
     this.closeActive(Date.now());
   }
 
+  private startPeriodicTimer(): void {
+    if (this.periodicTimer) return;
+    this.periodicTimer = setInterval(() => this.scheduleTick(), PERIODIC_TICK_MS);
+    // Unref so the interval doesn't keep the Node event loop alive on its own
+    // (Electron's app lifecycle owns liveness).
+    this.periodicTimer.unref?.();
+  }
+
+  private stopPeriodicTimer(): void {
+    if (this.periodicTimer) {
+      clearInterval(this.periodicTimer);
+      this.periodicTimer = null;
+    }
+  }
+
   private scheduleTick(): void {
-    if (this.status !== 'active') return;
+    // Both 'active' and 'excluded' need ticks: excluded must keep checking to
+    // detect when the user leaves the excluded app.
+    if (this.status !== 'active' && this.status !== 'excluded') return;
     const now = Date.now();
     if (now - this.lastTickAt < TICK_DEBOUNCE_MS) return;
     if (this.tickPending) return;
@@ -106,14 +135,14 @@ export class CaptureEngine extends EventEmitter {
   private async tick(): Promise<void> {
     this.tickPending = false;
     this.lastTickAt = Date.now();
-    if (this.status !== 'active') return;
+    if (this.status !== 'active' && this.status !== 'excluded') return;
 
     const now = Date.now();
     const idleSeconds = powerMonitor.getSystemIdleTime();
     const win = await pollActiveWindow();
     const cur = getCursorSnapshot();
 
-    // Idle evaluation always runs first, regardless of window state.
+    // Idle evaluation always runs first, regardless of window or excluded state.
     if (this.active) {
       const outcome = evaluateIdle({
         idleSeconds,
@@ -147,19 +176,19 @@ export class CaptureEngine extends EventEmitter {
     if (!win) return;
 
     // Exclusion check — before any session is opened or kept.
-    if (isExcluded({ appName: win.appName, windowTitle: win.windowTitle }, this.exclusions)) {
+    const inExclusion = isExcluded({ appName: win.appName, windowTitle: win.windowTitle }, this.exclusions);
+    if (inExclusion) {
       if (this.active) {
         this.closeActive(now);
       }
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if ((this.status as EngineStatus) !== 'excluded') {
+      if (this.status !== 'excluded') {
         this.status = 'excluded';
         this.emit('status', this.status);
       }
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if ((this.status as EngineStatus) === 'excluded') {
+    // Not in exclusion: if we were excluded, transition back to active.
+    if (this.status === 'excluded') {
       this.status = 'active';
       this.emit('status', this.status);
     }
