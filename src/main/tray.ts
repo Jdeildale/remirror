@@ -2,6 +2,7 @@ import { Tray, Menu, nativeImage, app } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { BRAND } from '@shared/branding';
+import { IPC } from '@shared/ipc-contract';
 import type { EngineStatus } from '@shared/types';
 import { openMainWindow } from './windows/main-window';
 import type { CaptureEngine } from './capture/engine';
@@ -53,7 +54,17 @@ export function rebuildMenu(engine: CaptureEngine): void {
       click: () => isPaused ? engine.resume() : engine.pause(),
     },
     { type: 'separator' },
-    { label: 'Settings…', click: () => openMainWindow() }, // Task 30 will refine this to route to settings tab
+    { label: 'Settings…', click: () => {
+        const win = openMainWindow();
+        win.webContents.once('did-finish-load', () => {
+          win.webContents.send(IPC.NAVIGATE, 'settings:projects');
+        });
+        // If already loaded, send immediately too.
+        if (!win.webContents.isLoading()) {
+          win.webContents.send(IPC.NAVIGATE, 'settings:projects');
+        }
+      }
+    },
     { type: 'separator' },
     { label: 'About', enabled: false }, // Phase 1: no About dialog yet
     {

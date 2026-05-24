@@ -4,6 +4,16 @@ import type { Session, Project, EngineStatus } from '@shared/types';
 import type { TodayStats } from '@shared/ipc-contract';
 import { Button } from '../ui/Button';
 import { SessionRow } from '../ui/SessionRow';
+import { ProjectEditor } from '../ui/ProjectEditor';
+import { ExclusionEditor } from '../ui/ExclusionEditor';
+import clsx from 'clsx';
+
+type Tab = 'today' | 'projects' | 'exclusions';
+
+interface Props {
+  tab: Tab;
+  onTabChange: (t: Tab) => void;
+}
 
 function fmtMs(ms: number): string {
   const mins = Math.round(ms / 60000);
@@ -18,7 +28,7 @@ const STATUS_LABEL: Record<EngineStatus, string> = {
   stopped: 'Capture: Stopped',
 };
 
-export function Status() {
+export function Status({ tab, onTabChange }: Props) {
   const api = useRemirror();
   const [status, setStatus] = useState<EngineStatus>('stopped');
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -46,9 +56,22 @@ export function Status() {
     return () => { off1(); off2(); clearInterval(interval); };
   }, [api]);
 
+  const tabBtn = (id: Tab, label: string) => (
+    <button
+      key={id}
+      onClick={() => onTabChange(id)}
+      className={clsx(
+        'px-4 py-2 text-sm font-medium border-b-2 -mb-px',
+        tab === id ? 'border-accent text-text' : 'border-transparent text-muted hover:text-text',
+      )}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="min-h-full p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">{STATUS_LABEL[status]}</h1>
         <Button
           variant="ghost"
@@ -58,39 +81,52 @@ export function Status() {
         </Button>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-surface rounded-lg p-4">
-            <div className="text-muted text-sm">Sessions today</div>
-            <div className="text-2xl font-semibold">{stats.totalSessions}</div>
-          </div>
-          <div className="bg-surface rounded-lg p-4">
-            <div className="text-muted text-sm">Longest block</div>
-            <div className="text-2xl font-semibold">{fmtMs(stats.longestBlockMs)}</div>
-          </div>
-          <div className="bg-surface rounded-lg p-4">
-            <div className="text-muted text-sm">Top project</div>
-            <div className="text-xl font-medium truncate">
-              {stats.topProjects[0]?.label ?? '—'}
+      <div className="border-b border-surface mb-6 flex gap-1">
+        {tabBtn('today', 'Today')}
+        {tabBtn('projects', 'Projects')}
+        {tabBtn('exclusions', 'Exclusions')}
+      </div>
+
+      {tab === 'today' && (
+        <>
+          {stats && (
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-surface rounded-lg p-4">
+                <div className="text-muted text-sm">Sessions today</div>
+                <div className="text-2xl font-semibold">{stats.totalSessions}</div>
+              </div>
+              <div className="bg-surface rounded-lg p-4">
+                <div className="text-muted text-sm">Longest block</div>
+                <div className="text-2xl font-semibold">{fmtMs(stats.longestBlockMs)}</div>
+              </div>
+              <div className="bg-surface rounded-lg p-4">
+                <div className="text-muted text-sm">Top project</div>
+                <div className="text-xl font-medium truncate">
+                  {stats.topProjects[0]?.label ?? '—'}
+                </div>
+                <div className="text-muted text-xs">
+                  {stats.topProjects[0] ? fmtMs(stats.topProjects[0].totalMs) : ''}
+                </div>
+              </div>
             </div>
-            <div className="text-muted text-xs">
-              {stats.topProjects[0] ? fmtMs(stats.topProjects[0].totalMs) : ''}
-            </div>
+          )}
+
+          <h2 className="text-muted text-sm mb-2">Recent sessions</h2>
+          <div className="space-y-2">
+            {sessions.length === 0 && (
+              <div className="text-muted text-sm p-4 bg-surface rounded-md">
+                No sessions yet. Switch to another window — the engine records on focus change.
+              </div>
+            )}
+            {sessions.map(s => (
+              <SessionRow key={s.id} session={s} projects={projects} />
+            ))}
           </div>
-        </div>
+        </>
       )}
 
-      <h2 className="text-muted text-sm mb-2">Recent sessions</h2>
-      <div className="space-y-2">
-        {sessions.length === 0 && (
-          <div className="text-muted text-sm p-4 bg-surface rounded-md">
-            No sessions yet. Switch to another window — the engine records on focus change.
-          </div>
-        )}
-        {sessions.map(s => (
-          <SessionRow key={s.id} session={s} projects={projects} />
-        ))}
-      </div>
+      {tab === 'projects' && <ProjectEditor />}
+      {tab === 'exclusions' && <ExclusionEditor />}
     </div>
   );
 }

@@ -27,6 +27,9 @@ export const IPC = {
   // Onboarding
   ONBOARDING_NEEDED: 'onboarding:needed',
   ONBOARDING_COMPLETE: 'onboarding:complete',
+
+  // Navigation
+  NAVIGATE: 'navigate',
 } as const;
 
 export interface TodayStats {
@@ -56,4 +59,6 @@ export interface RemirrorAPI {
 
   isOnboardingNeeded(): Promise<boolean>;
   completeOnboarding(): Promise<void>;
+
+  onNavigate(cb: (route: 'status' | 'settings:projects' | 'settings:exclusions') => void): () => void;
 }

@@ -30,6 +30,12 @@ const api: RemirrorAPI = {
 
   isOnboardingNeeded: () => ipcRenderer.invoke(IPC.ONBOARDING_NEEDED),
   completeOnboarding: () => ipcRenderer.invoke(IPC.ONBOARDING_COMPLETE),
+
+  onNavigate: (cb) => {
+    const handler = (_e: unknown, route: any) => cb(route);
+    ipcRenderer.on(IPC.NAVIGATE, handler);
+    return () => ipcRenderer.off(IPC.NAVIGATE, handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('remirror', api);

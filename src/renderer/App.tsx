@@ -4,13 +4,21 @@ import { Status } from './routes/Status';
 import { useRemirror } from './hooks/useRemirror';
 
 type Route = 'loading' | 'onboarding' | 'status';
+type Tab = 'today' | 'projects' | 'exclusions';
 
 export function App() {
   const api = useRemirror();
   const [route, setRoute] = useState<Route>('loading');
+  const [tab, setTab] = useState<Tab>('today');
 
   useEffect(() => {
     api.isOnboardingNeeded().then(needed => setRoute(needed ? 'onboarding' : 'status'));
+    const off = api.onNavigate((r) => {
+      if (r === 'settings:projects') setTab('projects');
+      else if (r === 'settings:exclusions') setTab('exclusions');
+      else setTab('today');
+    });
+    return off;
   }, [api]);
 
   if (route === 'loading') {
@@ -19,5 +27,5 @@ export function App() {
   if (route === 'onboarding') {
     return <Onboarding onComplete={() => { api.completeOnboarding(); setRoute('status'); }} />;
   }
-  return <Status />;
+  return <Status tab={tab} onTabChange={setTab} />;
 }
