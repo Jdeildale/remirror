@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ProjectEditor } from '../ui/ProjectEditor';
 import { ExclusionEditor } from '../ui/ExclusionEditor';
 import { Button } from '../ui/Button';
+import { Logo } from '../ui/Logo';
 
 interface Props { onComplete: () => void; }
 
@@ -12,6 +13,10 @@ export function Onboarding({ onComplete }: Props) {
 
   return (
     <div className="min-h-full p-10 max-w-3xl mx-auto">
+      <div className="flex items-center gap-3 mb-8">
+        <Logo size={36} color="#5fb6c4" />
+        <span className="text-xl font-semibold tracking-tight">Remirror</span>
+      </div>
       <div className="text-muted text-sm mb-2">Step {step} of 3</div>
       <h1 className="text-3xl font-semibold mb-6">
         {step === 1 && 'Tell Remirror what you work on'}

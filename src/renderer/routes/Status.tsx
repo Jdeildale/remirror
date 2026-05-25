@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { SessionRow } from '../ui/SessionRow';
 import { ProjectEditor } from '../ui/ProjectEditor';
 import { ExclusionEditor } from '../ui/ExclusionEditor';
+import { Logo } from '../ui/Logo';
 import clsx from 'clsx';
 
 type Tab = 'today' | 'projects' | 'exclusions';
@@ -72,7 +73,10 @@ export function Status({ tab, onTabChange }: Props) {
   return (
     <div className="min-h-full p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">{STATUS_LABEL[status]}</h1>
+        <div className="flex items-center gap-3">
+          <Logo size={28} color="#5fb6c4" />
+          <h1 className="text-2xl font-semibold">{STATUS_LABEL[status]}</h1>
+        </div>
         <Button
           variant="ghost"
           onClick={() => status === 'paused' ? api.resumeCapture() : api.pauseCapture()}
