@@ -1,9 +1,10 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { IPC, type TodayStats } from '@shared/ipc-contract';
+import { IPC, type TodayStats, type WorkHoursConfigDTO } from '@shared/ipc-contract';
 import type { CaptureEngine } from './capture/engine';
 import { getDatabase } from './db/index';
 import { SessionRepo } from './capture/sessions';
 import { ulid } from './ulid';
+import { store } from './store';
 import type { Project, Exclusion } from '@shared/types';
 
 export function registerIpc(engine: CaptureEngine): void {
@@ -79,6 +80,15 @@ export function registerIpc(engine: CaptureEngine): void {
   });
   ipcMain.handle(IPC.ONBOARDING_COMPLETE, () => {
     engine.start();
+  });
+
+  // Work hours — persisted in electron-store, pushed into the engine on change.
+  ipcMain.handle(IPC.WORK_HOURS_GET, (): WorkHoursConfigDTO => {
+    return engine.getWorkHoursConfig();
+  });
+  ipcMain.handle(IPC.WORK_HOURS_SET, (_e, cfg: WorkHoursConfigDTO) => {
+    store.set('workHours', cfg);
+    engine.setWorkHoursConfig(cfg);
   });
 }
 

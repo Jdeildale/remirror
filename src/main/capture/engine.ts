@@ -8,6 +8,7 @@ import { evaluateIdle } from './idle';
 import { pollActiveWindow } from './window-poller';
 import { getCursorSnapshot } from './cursor';
 import { InputGate } from './input-gate';
+import { isWithinWorkHours, type WorkHoursConfig, DEFAULT_WORK_HOURS } from './work-hours';
 import type { Project, Exclusion, EngineStatus } from '@shared/types';
 import log from '../log';
 
@@ -21,6 +22,12 @@ const CLOSE_THRESHOLD_SEC = 600;
 // response to input — but the moment input arrives, getSystemIdleTime() resets
 // to ~0, and we'd never observe the long-idle states (pause/close).
 const PERIODIC_TICK_MS = 30_000;
+
+// Work-hours scheduler cadence. Checks the clock once a minute and flips the
+// engine between 'active' and 'off-hours' on boundary crosses. Runs
+// independently of the input-gated tick so it works even when the user is
+// idle at the moment the workday starts/ends.
+const WORK_HOURS_CHECK_MS = 60_000;
 
 interface ActiveSessionState {
   id: string;
@@ -42,11 +49,23 @@ export class CaptureEngine extends EventEmitter {
   private tickPending = false;
   private lastTickAt = 0;
   private periodicTimer: NodeJS.Timeout | null = null;
+  private workHoursTimer: NodeJS.Timeout | null = null;
+  private workHoursConfig: WorkHoursConfig = DEFAULT_WORK_HOURS;
 
   constructor(private db: Database.Database) {
     super();
     this.repo = new SessionRepo(db);
     this.inputGate.on('input', () => this.scheduleTick());
+  }
+
+  /** Push a new work-hours config into the engine and re-evaluate immediately. */
+  setWorkHoursConfig(cfg: WorkHoursConfig): void {
+    this.workHoursConfig = cfg;
+    this.evaluateWorkHours();
+  }
+
+  getWorkHoursConfig(): WorkHoursConfig {
+    return this.workHoursConfig;
   }
 
   reloadProjects(): void {
@@ -59,9 +78,23 @@ export class CaptureEngine extends EventEmitter {
   }
 
   start(): void {
-    if (this.status !== 'stopped' && this.status !== 'paused') return;
+    if (this.status !== 'stopped' && this.status !== 'paused' && this.status !== 'off-hours') return;
     this.reloadProjects();
     this.reloadExclusions();
+    // Work-hours timer runs continuously while the engine is "running" so we
+    // can detect both leaving-the-window (active → off-hours) and re-entering
+    // (off-hours → active). Independent of input-gated capture.
+    this.startWorkHoursTimer();
+
+    // If we're outside the configured work window, land in 'off-hours' instead
+    // of 'active' — no input gate, no periodic tick, no DB writes.
+    if (!isWithinWorkHours(new Date(), this.workHoursConfig)) {
+      this.status = 'off-hours';
+      this.emit('status', this.status);
+      log.info('CaptureEngine started in off-hours state (outside work window)');
+      return;
+    }
+
     this.inputGate.start();
     this.startPeriodicTimer();
     this.status = 'active';
@@ -73,21 +106,26 @@ export class CaptureEngine extends EventEmitter {
     if (this.status === 'paused') return;
     this.stopPeriodicTimer();
     this.inputGate.stop();
+    // User-initiated pause takes precedence over the work-hours scheduler.
     // Set status (and notify) BEFORE closing the active session so renderers
     // see the pause first, then the session-list refresh — not the other way around.
     this.status = 'paused';
     this.emit('status', this.status);
     this.closeActive(Date.now());
-    log.info('CaptureEngine paused');
+    log.info('CaptureEngine paused (user)');
   }
 
   resume(): void {
-    if (this.status !== 'paused') return;
+    if (this.status !== 'paused' && this.status !== 'off-hours') return;
+    // Going through start() re-evaluates the work-hours window so a manual
+    // "resume" during off-hours will still land in 'off-hours' until the
+    // user toggles work-hours off in Settings.
     this.start();
   }
 
   stop(): void {
     this.stopPeriodicTimer();
+    this.stopWorkHoursTimer();
     this.inputGate.stop();
     this.status = 'stopped';
     this.emit('status', this.status);
@@ -118,6 +156,51 @@ export class CaptureEngine extends EventEmitter {
     if (this.periodicTimer) {
       clearInterval(this.periodicTimer);
       this.periodicTimer = null;
+    }
+  }
+
+  private startWorkHoursTimer(): void {
+    if (this.workHoursTimer) return;
+    this.workHoursTimer = setInterval(() => this.evaluateWorkHours(), WORK_HOURS_CHECK_MS);
+    this.workHoursTimer.unref?.();
+  }
+
+  private stopWorkHoursTimer(): void {
+    if (this.workHoursTimer) {
+      clearInterval(this.workHoursTimer);
+      this.workHoursTimer = null;
+    }
+  }
+
+  /**
+   * Crossing the work-hours boundary in either direction.
+   *   active|excluded → off-hours : close session, stop capture (paused stays paused)
+   *   off-hours       → active    : start capture; next tick opens a real session
+   * User-initiated 'paused' or 'stopped' is NEVER overridden by this scheduler.
+   */
+  private evaluateWorkHours(): void {
+    if (this.status === 'paused' || this.status === 'stopped') return;
+
+    const inWindow = isWithinWorkHours(new Date(), this.workHoursConfig);
+
+    if (!inWindow && this.status !== 'off-hours') {
+      // Leaving the work window. Close any active session.
+      log.info(`Crossing into off-hours from '${this.status}'`);
+      this.closeActive(Date.now());
+      this.inputGate.stop();
+      this.stopPeriodicTimer();
+      this.status = 'off-hours';
+      this.emit('status', this.status);
+      return;
+    }
+
+    if (inWindow && this.status === 'off-hours') {
+      // Returning to work hours.
+      log.info('Crossing into work hours from off-hours');
+      this.inputGate.start();
+      this.startPeriodicTimer();
+      this.status = 'active';
+      this.emit('status', this.status);
     }
   }
 

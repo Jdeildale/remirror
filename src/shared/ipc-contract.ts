@@ -30,7 +30,18 @@ export const IPC = {
 
   // Navigation
   NAVIGATE: 'navigate',
+
+  // Work hours
+  WORK_HOURS_GET: 'work_hours:get',
+  WORK_HOURS_SET: 'work_hours:set',
 } as const;
+
+export interface WorkHoursConfigDTO {
+  enabled: boolean;
+  start: string;
+  end: string;
+  weekendsActive: boolean;
+}
 
 export interface TodayStats {
   totalSessions: number;
@@ -60,5 +71,8 @@ export interface RemirrorAPI {
   isOnboardingNeeded(): Promise<boolean>;
   completeOnboarding(): Promise<void>;
 
-  onNavigate(cb: (route: 'status' | 'settings:projects' | 'settings:exclusions') => void): () => void;
+  onNavigate(cb: (route: 'status' | 'settings:projects' | 'settings:exclusions' | 'settings:schedule') => void): () => void;
+
+  getWorkHours(): Promise<WorkHoursConfigDTO>;
+  setWorkHours(cfg: WorkHoursConfigDTO): Promise<void>;
 }

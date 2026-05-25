@@ -4,7 +4,7 @@ import { Status } from './routes/Status';
 import { useRemirror } from './hooks/useRemirror';
 
 type Route = 'loading' | 'onboarding' | 'status';
-type Tab = 'today' | 'projects' | 'exclusions';
+type Tab = 'today' | 'projects' | 'exclusions' | 'schedule';
 
 export function App() {
   const api = useRemirror();
@@ -16,6 +16,7 @@ export function App() {
     const off = api.onNavigate((r) => {
       if (r === 'settings:projects') setTab('projects');
       else if (r === 'settings:exclusions') setTab('exclusions');
+      else if (r === 'settings:schedule') setTab('schedule');
       else setTab('today');
     });
     return off;

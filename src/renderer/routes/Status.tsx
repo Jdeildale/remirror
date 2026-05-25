@@ -6,10 +6,11 @@ import { Button } from '../ui/Button';
 import { SessionRow } from '../ui/SessionRow';
 import { ProjectEditor } from '../ui/ProjectEditor';
 import { ExclusionEditor } from '../ui/ExclusionEditor';
+import { WorkHoursEditor } from '../ui/WorkHoursEditor';
 import { Logo } from '../ui/Logo';
 import clsx from 'clsx';
 
-type Tab = 'today' | 'projects' | 'exclusions';
+type Tab = 'today' | 'projects' | 'exclusions' | 'schedule';
 
 interface Props {
   tab: Tab;
@@ -26,6 +27,7 @@ const STATUS_LABEL: Record<EngineStatus, string> = {
   active: 'Capture: Active',
   paused: 'Capture: Paused',
   excluded: 'Capture: Excluded app active',
+  'off-hours': 'Capture: Off-hours',
   stopped: 'Capture: Stopped',
 };
 
@@ -89,6 +91,7 @@ export function Status({ tab, onTabChange }: Props) {
         {tabBtn('today', 'Today')}
         {tabBtn('projects', 'Projects')}
         {tabBtn('exclusions', 'Exclusions')}
+        {tabBtn('schedule', 'Schedule')}
       </div>
 
       {tab === 'today' && (
@@ -131,6 +134,7 @@ export function Status({ tab, onTabChange }: Props) {
 
       {tab === 'projects' && <ProjectEditor />}
       {tab === 'exclusions' && <ExclusionEditor />}
+      {tab === 'schedule' && <WorkHoursEditor />}
     </div>
   );
 }

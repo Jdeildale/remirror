@@ -36,6 +36,9 @@ const api: RemirrorAPI = {
     ipcRenderer.on(IPC.NAVIGATE, handler);
     return () => ipcRenderer.off(IPC.NAVIGATE, handler);
   },
+
+  getWorkHours: () => ipcRenderer.invoke(IPC.WORK_HOURS_GET),
+  setWorkHours: (cfg) => ipcRenderer.invoke(IPC.WORK_HOURS_SET, cfg),
 };
 
 contextBridge.exposeInMainWorld('remirror', api);
