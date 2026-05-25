@@ -30,4 +30,4 @@ export interface Exclusion {
   reason: string | null;
 }
 
-export type EngineStatus = 'active' | 'paused' | 'excluded' | 'off-hours' | 'stopped';
+export type EngineStatus = 'active' | 'paused' | 'excluded' | 'stopped';

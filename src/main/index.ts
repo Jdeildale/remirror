@@ -38,10 +38,6 @@ app.whenReady().then(async () => {
     openDatabase(dbPath);
 
     const engine = new CaptureEngine(getDatabase());
-    // Hydrate work-hours config from electron-store before the engine starts
-    // so the very first start() call already respects the user's schedule.
-    const { store } = await import('./store');
-    engine.setWorkHoursConfig(store.get('workHours'));
 
     installLifecycleHandlers(engine);
     registerIpc(engine);

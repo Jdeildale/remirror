@@ -27,7 +27,6 @@ const STATUS_LABEL: Record<EngineStatus, string> = {
   active: 'Capture: Active',
   paused: 'Capture: Paused',
   excluded: 'Capture: Excluded app active',
-  'off-hours': 'Capture: Off-hours',
   stopped: 'Capture: Stopped',
 };
 

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRemirror } from '../hooks/useRemirror';
 import type { WorkHoursConfigDTO } from '@shared/ipc-contract';
-import { Button } from './Button';
 import { Input } from './Input';
 
 export function WorkHoursEditor() {
@@ -25,10 +24,13 @@ export function WorkHoursEditor() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium mb-1">When should Remirror record?</h3>
+        <h3 className="text-lg font-medium mb-1">When do you usually work?</h3>
         <p className="text-muted text-sm">
-          Outside this window the engine pauses automatically. Sessions don't accrue, no input is
-          observed. Use the toggle below if you want Remirror running around the clock instead.
+          Remirror keeps recording around the clock — this just tells the daily brief how to
+          structure your day. The brief will say something like:{' '}
+          <span className="text-text">"before 9am you spent 40min on X, during work you did Y and Z,
+          after 5pm you returned to X for 20min."</span>{' '}
+          If you don't have a typical schedule, leave this off and the brief won't bucket.
         </p>
       </div>
 
@@ -39,7 +41,7 @@ export function WorkHoursEditor() {
           onChange={e => save({ ...cfg, enabled: e.target.checked })}
           className="w-4 h-4 accent-accent"
         />
-        <span className="text-sm">Limit recording to work hours</span>
+        <span className="text-sm">Use a typical work schedule</span>
       </label>
 
       <div className={cfg.enabled ? '' : 'opacity-50 pointer-events-none'}>
@@ -69,13 +71,13 @@ export function WorkHoursEditor() {
             onChange={e => save({ ...cfg, weekendsActive: e.target.checked })}
             className="w-4 h-4 accent-accent"
           />
-          <span className="text-sm">Also capture on weekends</span>
+          <span className="text-sm">Weekends count as work days</span>
         </label>
       </div>
 
       <p className="text-muted text-xs">
-        Times are in your computer's local timezone. Changes take effect immediately —
-        if you switch on "limit" outside the window, the engine flips to off-hours within a minute.
+        Times are in your computer's local timezone. The brief uses this to label sessions
+        as before-work / during-work / after-work — it doesn't pause recording outside this window.
       </p>
 
       {saved && <p className="text-accent text-xs">✓ Saved</p>}

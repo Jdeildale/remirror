@@ -82,13 +82,14 @@ export function registerIpc(engine: CaptureEngine): void {
     engine.start();
   });
 
-  // Work hours — persisted in electron-store, pushed into the engine on change.
+  // Work hours — pure metadata for the daily brief (Phase 4). NOT a recording
+  // gate. The engine never reads this; the brief reads it to bucket sessions
+  // into before/during/after work.
   ipcMain.handle(IPC.WORK_HOURS_GET, (): WorkHoursConfigDTO => {
-    return engine.getWorkHoursConfig();
+    return store.get('workHours');
   });
   ipcMain.handle(IPC.WORK_HOURS_SET, (_e, cfg: WorkHoursConfigDTO) => {
     store.set('workHours', cfg);
-    engine.setWorkHoursConfig(cfg);
   });
 }
 

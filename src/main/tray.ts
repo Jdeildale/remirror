@@ -16,7 +16,6 @@ const STATUS_LABEL: Record<EngineStatus, string> = {
   active: '● Capture: Active',
   paused: '● Capture: Paused',
   excluded: '● Capture: Excluded app active',
-  'off-hours': '● Capture: Off-hours',
   stopped: '● Capture: Stopped',
 };
 
@@ -24,7 +23,6 @@ const TOOLTIP: Record<EngineStatus, string> = {
   active: BRAND.tray.active,
   paused: BRAND.tray.paused,
   excluded: BRAND.tray.excluded,
-  'off-hours': `${BRAND.appName} — Off-hours`,
   stopped: BRAND.appName,
 };
 
