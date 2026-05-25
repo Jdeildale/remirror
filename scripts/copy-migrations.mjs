@@ -13,8 +13,13 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
+// electron-vite bundles all main-process TypeScript into a single
+// out/main/index.js. At runtime, __dirname inside the bundle resolves to
+// out/main/ (not out/main/db/). The db module does path.join(__dirname,
+// 'migrations'), so the SQL files must sit DIRECTLY under out/main/migrations,
+// not under out/main/db/migrations.
 const src = path.join(projectRoot, 'src', 'main', 'db', 'migrations');
-const dst = path.join(projectRoot, 'out', 'main', 'db', 'migrations');
+const dst = path.join(projectRoot, 'out', 'main', 'migrations');
 
 if (!fs.existsSync(src)) {
   console.error(`[copy-migrations] source not found: ${src}`);
