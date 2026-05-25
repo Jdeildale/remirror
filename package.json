@@ -11,11 +11,8 @@
     "node": "^20.18.0"
   },
   "scripts": {
-    "copy-migrations": "node scripts/copy-migrations.mjs",
     "dev": "npm run rebuild:electron && electron-vite dev",
-    "predev": "npm run copy-migrations",
     "build": "electron-vite build",
-    "prebuild": "npm run copy-migrations",
     "build:win": "npm run rebuild:electron && npm run build && electron-builder --win --config electron-builder.yml",
     "pretest": "npm run rebuild:node",
     "test": "node scripts/run-tests.mjs",
