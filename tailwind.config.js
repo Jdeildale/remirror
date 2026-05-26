@@ -4,14 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Dark, calm palette per spec — no red anywhere.
-        bg: '#0f1115',
-        surface: '#171a20',
-        text: '#e6e8eb',
-        muted: '#8a93a0',
-        accent: '#5fb6c4', // calm teal for goal-aligned signals
-        amber: '#d2a04a',
-        gray: '#5a6270',
+        // Coffee-tone palette — Phase 2a. Mirror of src/shared/palette.ts.
+        bg: '#1a1816',
+        'bg-deep': '#0d0b09',
+        surface: '#312d28',
+        text: '#faf7f0',
+        muted: '#b8b1a4',
+        quiet: '#8a7f70',
+        accent: '#5dc4b0',
+        purple: '#c89af0',
+        green: '#bdd470',
+        sand: '#e8b06d',
+        unclassified: '#8a7f70',
+        amber: '#e8b06d', // Phase 1 legacy alias (mapped to sand for backward compat)
+        gray: '#8a7f70',  // Phase 1 legacy alias
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

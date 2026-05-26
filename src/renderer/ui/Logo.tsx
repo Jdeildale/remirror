@@ -1,21 +1,14 @@
 import React from 'react';
+import { PALETTE } from '@shared/palette';
 
 interface Props {
-  /** Width/height in pixels. Logo is square. Default 32. */
   size?: number;
-  /** Fill color. Default 'currentColor' so the logo inherits text color. */
   color?: string;
   className?: string;
-  /** Optional accessible label; defaults to 'Remirror'. */
   title?: string;
 }
 
-/**
- * The Remirror brand mark — a single-path glyph rendered inline so we don't
- * fetch any assets and the color is theme-controllable via the `color` prop
- * (defaults to `currentColor`, which inherits from parent text color).
- */
-export function Logo({ size = 32, color = 'currentColor', className, title = 'Remirror' }: Props) {
+export function Logo({ size = 32, color = PALETTE.accent, className, title = 'Remirror' }: Props) {
   return (
     <svg
       width={size}

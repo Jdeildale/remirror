@@ -14,7 +14,7 @@ export function Onboarding({ onComplete }: Props) {
   return (
     <div className="min-h-full p-10 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-8">
-        <Logo size={36} color="#5fb6c4" />
+        <Logo size={36} />
         <span className="text-xl font-semibold tracking-tight">Remirror</span>
       </div>
       <div className="text-muted text-sm mb-2">Step {step} of 3</div>

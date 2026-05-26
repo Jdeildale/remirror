@@ -3,10 +3,19 @@ import { DEFAULT_WORK_HOURS, type WorkHoursConfig } from './capture/work-hours';
 
 type Prefs = {
   hotkey: string;
-  // Slot reserved for future license-key validation. Phase 1 does not check it.
   licenseKey?: string;
   capturePausedByUser: boolean;
   workHours: WorkHoursConfig;
+  google: {
+    refreshToken?: string;
+    calendarId: string;
+    syncedAt?: number;
+  };
+  weeklyGoal?: {
+    text: string;
+    projectLabel?: string;
+    setAt: number;
+  };
 };
 
 export const store = new Store<Prefs>({
@@ -15,5 +24,8 @@ export const store = new Store<Prefs>({
     licenseKey: undefined,
     capturePausedByUser: false,
     workHours: DEFAULT_WORK_HOURS,
+    google: {
+      calendarId: 'primary',
+    },
   },
 });
