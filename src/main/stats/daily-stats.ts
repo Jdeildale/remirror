@@ -87,3 +87,44 @@ export function computeDailyStats(db: Database.Database, now: Date): DailyStats 
     longestBlock: longest,
   };
 }
+
+export interface ProjectBreakdownEntry {
+  label: string;
+  totalMs: number;
+  returnCount: number;
+}
+
+export function computeProjectBreakdown(db: Database.Database, now: Date): ProjectBreakdownEntry[] {
+  const { startMs, endMs } = dayBounds(now);
+  const rows = db.prepare(`
+    SELECT project_label, start_time, end_time, paused_ms, kind
+    FROM sessions
+    WHERE start_time >= ? AND start_time <= ? AND end_time IS NOT NULL
+    ORDER BY start_time ASC
+  `).all(startMs, endMs) as Array<{
+    project_label: string | null;
+    start_time: number;
+    end_time: number;
+    paused_ms: number;
+    kind: string;
+  }>;
+
+  const byProject = new Map<string, { totalMs: number; returnCount: number }>();
+  let prevLabel: string | null = null;
+
+  for (const r of rows) {
+    const label = r.project_label ?? 'unclassified';
+    const effective = Math.max(0, r.end_time - r.start_time - r.paused_ms);
+    const entry = byProject.get(label) ?? { totalMs: 0, returnCount: 0 };
+    entry.totalMs += effective;
+    if (prevLabel !== label) {
+      entry.returnCount += 1;
+    }
+    byProject.set(label, entry);
+    prevLabel = label;
+  }
+
+  return [...byProject.entries()]
+    .map(([label, v]) => ({ label, totalMs: v.totalMs, returnCount: v.returnCount }))
+    .sort((a, b) => b.totalMs - a.totalMs);
+}

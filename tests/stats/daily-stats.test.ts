@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { runMigrations } from '@main/db/migrate';
 import { SessionRepo } from '@main/capture/sessions';
-import { computeDailyStats } from '@main/stats/daily-stats';
+import { computeDailyStats, computeProjectBreakdown } from '@main/stats/daily-stats';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -130,5 +130,87 @@ describe('computeDailyStats', () => {
     expect(stats.longestBlock).not.toBeNull();
     expect(stats.longestBlock!.id).toBe(idWork);     // 25-min work wins, not 2-min transition
     expect(stats.longestBlock!.durationMs).toBe(25 * MIN);
+  });
+});
+
+describe('computeProjectBreakdown', () => {
+  it('returns empty array when there are no sessions today', () => {
+    const bd = computeProjectBreakdown(db, new Date());
+    expect(bd).toEqual([]);
+  });
+
+  it('aggregates total time per project label', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    const a1 = sessions.open({ startTime: start + HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(a1, start + HOUR + 30 * MIN);
+    const a2 = sessions.open({ startTime: start + 3 * HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(a2, start + 3 * HOUR + 20 * MIN);
+
+    const bd = computeProjectBreakdown(db, now);
+    expect(bd.length).toBe(1);
+    expect(bd[0].label).toBe('Oracle');
+    expect(bd[0].totalMs).toBe(50 * MIN);
+  });
+
+  it('counts returns when project label changes between consecutive sessions', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    const a1 = sessions.open({ startTime: start + HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(a1, start + HOUR + 10 * MIN);
+    const b1 = sessions.open({ startTime: start + 2 * HOUR, appName: 'b', windowTitle: 't', displayId: 0, projectLabel: 'Twitter', confidence: 0 });
+    sessions.close(b1, start + 2 * HOUR + 5 * MIN);
+    const a2 = sessions.open({ startTime: start + 3 * HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(a2, start + 3 * HOUR + 15 * MIN);
+
+    const bd = computeProjectBreakdown(db, now);
+    const oracle = bd.find(e => e.label === 'Oracle');
+    expect(oracle).toBeDefined();
+    expect(oracle!.returnCount).toBe(2); // returned to Oracle twice (1st time + after Twitter)
+    const twitter = bd.find(e => e.label === 'Twitter');
+    expect(twitter!.returnCount).toBe(1);
+  });
+
+  it('does not double-count returns for consecutive same-label sessions', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    // Three consecutive Oracle sessions — should be 1 return, not 3
+    for (let i = 0; i < 3; i++) {
+      const id = sessions.open({ startTime: start + (i + 1) * HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+      sessions.close(id, start + (i + 1) * HOUR + 30 * MIN);
+    }
+
+    const bd = computeProjectBreakdown(db, now);
+    const oracle = bd.find(e => e.label === 'Oracle');
+    expect(oracle!.returnCount).toBe(1);
+  });
+
+  it('sorts by totalMs descending', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    const a1 = sessions.open({ startTime: start + HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Small', confidence: 1 });
+    sessions.close(a1, start + HOUR + 10 * MIN);
+    const b1 = sessions.open({ startTime: start + 2 * HOUR, appName: 'b', windowTitle: 't', displayId: 0, projectLabel: 'Big', confidence: 1 });
+    sessions.close(b1, start + 2 * HOUR + 60 * MIN);
+    const c1 = sessions.open({ startTime: start + 4 * HOUR, appName: 'c', windowTitle: 't', displayId: 0, projectLabel: 'Medium', confidence: 1 });
+    sessions.close(c1, start + 4 * HOUR + 30 * MIN);
+
+    const bd = computeProjectBreakdown(db, now);
+    expect(bd.map(e => e.label)).toEqual(['Big', 'Medium', 'Small']);
+  });
+
+  it('treats null project_label as "unclassified"', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    const id = sessions.open({ startTime: start + HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'unclassified', confidence: 0 });
+    sessions.close(id, start + HOUR + 10 * MIN);
+
+    const bd = computeProjectBreakdown(db, now);
+    expect(bd[0].label).toBe('unclassified');
   });
 });
