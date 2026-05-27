@@ -1,4 +1,14 @@
-import type { Session, Project, Exclusion, EngineStatus } from './types';
+import type {
+  Session,
+  Project,
+  Exclusion,
+  EngineStatus,
+  CalendarEventDTO,
+  DailyStatsDTO,
+  ProjectBreakdownDTO,
+  WeeklyGoalDTO,
+  GoogleStatusDTO,
+} from './types';
 
 export const IPC = {
   // Engine
@@ -34,6 +44,25 @@ export const IPC = {
   // Work hours
   WORK_HOURS_GET: 'work_hours:get',
   WORK_HOURS_SET: 'work_hours:set',
+
+  // Stats
+  STATS_TODAY: 'stats:today',
+  STATS_PROJECT_BREAKDOWN: 'stats:project_breakdown',
+
+  // Calendar
+  CALENDAR_LIST_TODAY: 'calendar:list_today',
+  CALENDAR_REFRESH: 'calendar:refresh',
+  CALENDAR_STATUS: 'calendar:status',
+
+  // Google
+  GOOGLE_CONNECT: 'google:connect',
+  GOOGLE_DISCONNECT: 'google:disconnect',
+  GOOGLE_STATUS: 'google:status',
+  GOOGLE_STATUS_CHANGED: 'google:status:changed',
+
+  // Goal
+  GOAL_GET: 'goal:get',
+  GOAL_SET: 'goal:set',
 } as const;
 
 export interface WorkHoursConfigDTO {
@@ -75,4 +104,15 @@ export interface RemirrorAPI {
 
   getWorkHours(): Promise<WorkHoursConfigDTO>;
   setWorkHours(cfg: WorkHoursConfigDTO): Promise<void>;
+
+  todayStatsV2(): Promise<DailyStatsDTO>;
+  projectBreakdown(): Promise<ProjectBreakdownDTO[]>;
+  calendarListToday(): Promise<CalendarEventDTO[]>;
+  calendarRefresh(): Promise<boolean>;
+  googleConnect(): Promise<GoogleStatusDTO>;
+  googleDisconnect(): Promise<void>;
+  googleStatus(): Promise<GoogleStatusDTO>;
+  onGoogleStatusChanged(cb: (s: GoogleStatusDTO) => void): () => void;
+  getGoal(): Promise<WeeklyGoalDTO | null>;
+  setGoal(g: { text: string; projectLabel?: string } | null): Promise<WeeklyGoalDTO | null>;
 }

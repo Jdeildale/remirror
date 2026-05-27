@@ -31,3 +31,45 @@ export interface Exclusion {
 }
 
 export type EngineStatus = 'active' | 'paused' | 'excluded' | 'stopped';
+
+export interface CalendarEventDTO {
+  id: string;
+  startTimeMs: number;
+  endTimeMs: number;
+  title: string;
+  projectLabel: string | null;
+  status: 'kept' | 'partial' | 'did-not-start';
+  overlapMs: number;
+}
+
+export interface DailyStatsDTO {
+  date: string;
+  focusBlocksCount: number;
+  switchesCount: number;
+  focusedMs: number;
+  elsewhereMs: number;
+  longestBlock: {
+    id: string;
+    durationMs: number;
+    projectLabel: string;
+    startTime: number;
+  } | null;
+}
+
+export interface ProjectBreakdownDTO {
+  label: string;
+  totalMs: number;
+  returnCount: number;
+}
+
+export interface WeeklyGoalDTO {
+  text: string;
+  projectLabel?: string;
+  setAt: number;
+}
+
+export interface GoogleStatusDTO {
+  connected: boolean;
+  syncedAt: number | null;
+  lastError: string | null;
+}

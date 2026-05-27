@@ -39,6 +39,21 @@ const api: RemirrorAPI = {
 
   getWorkHours: () => ipcRenderer.invoke(IPC.WORK_HOURS_GET),
   setWorkHours: (cfg) => ipcRenderer.invoke(IPC.WORK_HOURS_SET, cfg),
+
+  todayStatsV2: () => ipcRenderer.invoke(IPC.STATS_TODAY),
+  projectBreakdown: () => ipcRenderer.invoke(IPC.STATS_PROJECT_BREAKDOWN),
+  calendarListToday: () => ipcRenderer.invoke(IPC.CALENDAR_LIST_TODAY),
+  calendarRefresh: () => ipcRenderer.invoke(IPC.CALENDAR_REFRESH),
+  googleConnect: () => ipcRenderer.invoke(IPC.GOOGLE_CONNECT),
+  googleDisconnect: () => ipcRenderer.invoke(IPC.GOOGLE_DISCONNECT),
+  googleStatus: () => ipcRenderer.invoke(IPC.GOOGLE_STATUS),
+  onGoogleStatusChanged: (cb) => {
+    const handler = (_e: unknown, s: any) => cb(s);
+    ipcRenderer.on(IPC.GOOGLE_STATUS_CHANGED, handler);
+    return () => ipcRenderer.off(IPC.GOOGLE_STATUS_CHANGED, handler);
+  },
+  getGoal: () => ipcRenderer.invoke(IPC.GOAL_GET),
+  setGoal: (g) => ipcRenderer.invoke(IPC.GOAL_SET, g),
 };
 
 contextBridge.exposeInMainWorld('remirror', api);
