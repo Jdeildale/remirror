@@ -65,7 +65,7 @@ export function computeDailyStats(db: Database.Database, now: Date): DailyStats 
       focusBlocksCount += 1;
     }
 
-    if (!longest || effective > longest.durationMs) {
+    if (r.kind === 'work' && (!longest || effective > longest.durationMs)) {
       longest = {
         id: r.id,
         durationMs: effective,

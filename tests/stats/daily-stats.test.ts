@@ -112,4 +112,23 @@ describe('computeDailyStats', () => {
     expect(stats.focusedMs).toBe(15 * MIN);
     expect(stats.focusBlocksCount).toBe(0); // 15min effective < 20min threshold
   });
+
+  it('counts transition (sub-4-min) sessions toward switchesCount but ignores them for longestBlock', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    // 2-min session → gets reclassified to kind='transition' by SessionRepo.close()
+    const idShort = sessions.open({ startTime: start + HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(idShort, start + HOUR + 2 * MIN);
+
+    // 25-min session → stays kind='work' and becomes the longest
+    const idWork = sessions.open({ startTime: start + 3 * HOUR, appName: 'b', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(idWork, start + 3 * HOUR + 25 * MIN);
+
+    const stats = computeDailyStats(db, now);
+    expect(stats.switchesCount).toBe(2);             // both rows counted as switches
+    expect(stats.longestBlock).not.toBeNull();
+    expect(stats.longestBlock!.id).toBe(idWork);     // 25-min work wins, not 2-min transition
+    expect(stats.longestBlock!.durationMs).toBe(25 * MIN);
+  });
 });
