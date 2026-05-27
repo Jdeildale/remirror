@@ -213,4 +213,30 @@ describe('computeProjectBreakdown', () => {
     const bd = computeProjectBreakdown(db, now);
     expect(bd[0].label).toBe('unclassified');
   });
+
+  it('excludes transition rows from totals and returnCount', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    // Oracle work (30 min)
+    const a1 = sessions.open({ startTime: start + HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(a1, start + HOUR + 30 * MIN);
+
+    // A 2-min "drift" to Twitter — gets reclassified to kind='transition' by SessionRepo.close()
+    const drift = sessions.open({ startTime: start + 2 * HOUR, appName: 'b', windowTitle: 't', displayId: 0, projectLabel: 'Twitter', confidence: 0 });
+    sessions.close(drift, start + 2 * HOUR + 2 * MIN);
+
+    // Back to Oracle (20 min)
+    const a2 = sessions.open({ startTime: start + 3 * HOUR, appName: 'a', windowTitle: 't', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    sessions.close(a2, start + 3 * HOUR + 20 * MIN);
+
+    const bd = computeProjectBreakdown(db, now);
+    // Twitter should NOT appear (its row was a transition)
+    expect(bd.find(e => e.label === 'Twitter')).toBeUndefined();
+    // Oracle should be the only entry, with two visits worth of time and returnCount=1 (transitions were excluded, so the two Oracle rows are consecutive from this function's perspective)
+    expect(bd.length).toBe(1);
+    expect(bd[0].label).toBe('Oracle');
+    expect(bd[0].totalMs).toBe(50 * MIN);
+    expect(bd[0].returnCount).toBe(1);
+  });
 });

@@ -94,12 +94,22 @@ export interface ProjectBreakdownEntry {
   returnCount: number;
 }
 
+/**
+ * Aggregates today's work sessions into per-project totals + return counts.
+ *
+ * - Only kind='work' sessions are counted (transitions are overhead, excluded)
+ * - 'unclassified' entries WILL appear when work sessions had no matching project;
+ *   callers should filter these if they only want named projects
+ * - `returnCount` counts how many distinct visits the label had today, where a visit
+ *   is a maximal run of consecutive same-label sessions
+ * - Returned entries are sorted by `totalMs` descending
+ */
 export function computeProjectBreakdown(db: Database.Database, now: Date): ProjectBreakdownEntry[] {
   const { startMs, endMs } = dayBounds(now);
   const rows = db.prepare(`
     SELECT project_label, start_time, end_time, paused_ms, kind
     FROM sessions
-    WHERE start_time >= ? AND start_time <= ? AND end_time IS NOT NULL
+    WHERE start_time >= ? AND start_time <= ? AND end_time IS NOT NULL AND kind = 'work'
     ORDER BY start_time ASC
   `).all(startMs, endMs) as Array<{
     project_label: string | null;
