@@ -99,3 +99,14 @@ If you hit a `MSBUILD : error MSB1009: Project file does not exist` or a ClangCL
 ## License
 
 Proprietary. Not for redistribution.
+
+## Google Calendar setup (Phase 2a)
+
+The calendar integration uses OAuth against your own Google Cloud project. This keeps your calendar data private to your machine and your Google account; nothing flows through any third-party server.
+
+1. Visit https://console.cloud.google.com and create (or select) a project.
+2. Enable the Google Calendar API: APIs & Services → Library → search "Google Calendar API" → Enable.
+3. Configure the OAuth consent screen: APIs & Services → OAuth consent screen. User type "External" is fine for personal use. Add the scope `https://www.googleapis.com/auth/calendar.events.readonly`. Add your own email as a test user.
+4. Create OAuth credentials: APIs & Services → Credentials → Create Credentials → OAuth client ID → Application type: "Desktop app".
+5. Copy the Client ID and Client Secret into a local `.env` file in the project root, matching `.env.example`.
+6. The first time you click "Connect Google Calendar" in Remirror, the system browser opens for you to authorize. The refresh token is then stored locally via Electron's `safeStorage` API.
