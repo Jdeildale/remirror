@@ -9,6 +9,13 @@ interface CacheEntry {
   stats: DailyStats;
 }
 
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, '0');
+  const dd = d.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 export class DailyStatsCache {
   private cache: CacheEntry | null = null;
   private engine: CaptureEngine | null = null;
@@ -20,7 +27,12 @@ export class DailyStatsCache {
   }
 
   get(now: Date = new Date()): DailyStats {
-    if (this.cache && Date.now() - this.cache.computedAt < TTL_MS) {
+    const todayIso = isoDateLocal(now);
+    if (
+      this.cache &&
+      this.cache.stats.date === todayIso &&
+      Date.now() - this.cache.computedAt < TTL_MS
+    ) {
       return this.cache.stats;
     }
     const fresh = computeDailyStats(getDatabase(), now);
