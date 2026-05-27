@@ -6,6 +6,25 @@ import { SessionRepo } from './capture/sessions';
 import { ulid } from './ulid';
 import { store } from './store';
 import type { Project, Exclusion } from '@shared/types';
+import { dailyStatsCache } from './stats/cache';
+import { computeProjectBreakdown } from './stats/daily-stats';
+import { CalendarRepo } from './calendar/repo';
+import { computeAdherence } from './calendar/adherence';
+import { startOAuthFlow, disconnectGoogle, hasStoredAuth } from './google/auth';
+import type {
+  CalendarEventDTO,
+  DailyStatsDTO,
+  ProjectBreakdownDTO,
+  WeeklyGoalDTO,
+  GoogleStatusDTO,
+} from '@shared/types';
+
+function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, '0');
+  const dd = d.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
 
 export function registerIpc(engine: CaptureEngine): void {
   const db = getDatabase();
@@ -90,6 +109,100 @@ export function registerIpc(engine: CaptureEngine): void {
   });
   ipcMain.handle(IPC.WORK_HOURS_SET, (_e, cfg: WorkHoursConfigDTO) => {
     store.set('workHours', cfg);
+  });
+
+  const calRepo = new CalendarRepo(db);
+
+  // Stats
+  ipcMain.handle(IPC.STATS_TODAY, (): DailyStatsDTO => dailyStatsCache.get());
+  ipcMain.handle(IPC.STATS_PROJECT_BREAKDOWN, (): ProjectBreakdownDTO[] => {
+    return computeProjectBreakdown(db, new Date());
+  });
+
+  // Calendar
+  ipcMain.handle(IPC.CALENDAR_LIST_TODAY, (): CalendarEventDTO[] => {
+    const today = isoDateLocal(new Date());
+    const events = calRepo.findByDate(today);
+    const sessionsToday = repo.recentSessions(500).filter(s => {
+      const sDate = new Date(s.start_time);
+      return isoDateLocal(sDate) === today && s.end_time !== null;
+    });
+    return events.map(e => {
+      const adherence = computeAdherence({
+        event: { startMs: e.startTimeMs, endMs: e.endTimeMs, projectLabel: e.projectLabel },
+        sessions: sessionsToday.map(s => ({
+          startMs: s.start_time,
+          endMs: s.end_time as number,
+          projectLabel: s.project_label ?? 'unclassified',
+        })),
+      });
+      return {
+        id: e.id,
+        startTimeMs: e.startTimeMs,
+        endTimeMs: e.endTimeMs,
+        title: e.title,
+        projectLabel: e.projectLabel,
+        status: adherence.status,
+        overlapMs: adherence.overlapMs,
+      };
+    });
+  });
+
+  ipcMain.handle(IPC.CALENDAR_REFRESH, async (): Promise<boolean> => {
+    const sync = global.__remirrorCalendarSync;
+    if (!sync) return false;
+    return await sync.syncNow();
+  });
+
+  ipcMain.handle(IPC.CALENDAR_STATUS, () => {
+    return global.__remirrorCalendarSync?.getStatus() ?? { lastSyncAt: null, lastError: null, running: false };
+  });
+
+  // Google OAuth
+  ipcMain.handle(IPC.GOOGLE_CONNECT, async (): Promise<GoogleStatusDTO> => {
+    try {
+      await startOAuthFlow();
+      global.__remirrorCalendarSync?.start();
+      const status: GoogleStatusDTO = {
+        connected: true,
+        syncedAt: store.get('google').syncedAt ?? null,
+        lastError: null,
+      };
+      broadcast(IPC.GOOGLE_STATUS_CHANGED, status);
+      return status;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const status: GoogleStatusDTO = { connected: false, syncedAt: null, lastError: msg };
+      broadcast(IPC.GOOGLE_STATUS_CHANGED, status);
+      return status;
+    }
+  });
+
+  ipcMain.handle(IPC.GOOGLE_DISCONNECT, () => {
+    disconnectGoogle();
+    global.__remirrorCalendarSync?.stop();
+    broadcast(IPC.GOOGLE_STATUS_CHANGED, { connected: false, syncedAt: null, lastError: null });
+  });
+
+  ipcMain.handle(IPC.GOOGLE_STATUS, (): GoogleStatusDTO => ({
+    connected: hasStoredAuth(),
+    syncedAt: store.get('google').syncedAt ?? null,
+    lastError: global.__remirrorCalendarSync?.getStatus().lastError ?? null,
+  }));
+
+  // Goal
+  ipcMain.handle(IPC.GOAL_GET, (): WeeklyGoalDTO | null => {
+    return store.get('weeklyGoal') ?? null;
+  });
+
+  ipcMain.handle(IPC.GOAL_SET, (_e, g: { text: string; projectLabel?: string } | null): WeeklyGoalDTO | null => {
+    if (g === null) {
+      store.delete('weeklyGoal');
+      return null;
+    }
+    const stored: WeeklyGoalDTO = { text: g.text, projectLabel: g.projectLabel, setAt: Date.now() };
+    store.set('weeklyGoal', stored);
+    return stored;
   });
 }
 
