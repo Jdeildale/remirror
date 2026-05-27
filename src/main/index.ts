@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { app, dialog } from 'electron';
 import path from 'path';
 import { BRAND } from '@shared/branding';
