@@ -50,14 +50,6 @@ app.whenReady().then(async () => {
     // (createTray subscribes to engine.on('status', …) for menu rebuild.)
     registerHotkey();
 
-    const isFirstRun = (getDatabase().prepare('SELECT COUNT(*) as c FROM projects').get() as { c: number }).c === 0;
-    if (isFirstRun) {
-      log.info('First run — opening onboarding window');
-      openMainWindow(); // renderer routes to /onboarding when projects.length === 0
-    } else {
-      engine.start();
-    }
-
     const calendarSync = new CalendarSync();
     global.__remirrorCalendarSync = calendarSync;
 
@@ -73,6 +65,14 @@ app.whenReady().then(async () => {
         calendarSync.stop();
       }
     });
+
+    const isFirstRun = (getDatabase().prepare('SELECT COUNT(*) as c FROM projects').get() as { c: number }).c === 0;
+    if (isFirstRun) {
+      log.info('First run — opening onboarding window');
+      openMainWindow(); // renderer routes to /onboarding when projects.length === 0
+    } else {
+      engine.start();
+    }
 
     log.info(`${BRAND.appName} ready`);
   } catch (err) {
@@ -91,6 +91,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  global.__remirrorCalendarSync?.stop();
   unregisterAllHotkeys();
   closeDatabase();
 });

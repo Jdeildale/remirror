@@ -46,13 +46,13 @@ export class CalendarSync {
   /** Manual sync trigger. Returns true on success. */
   async syncNow(): Promise<boolean> {
     if (this.running) return false;
-    const client = getAuthorizedClient();
-    if (!client) {
-      this.lastError = 'No Google credentials stored';
-      return false;
-    }
     this.running = true;
     try {
+      const client = getAuthorizedClient();
+      if (!client) {
+        this.lastError = 'No Google credentials stored';
+        return false;
+      }
       const calId = store.get('google').calendarId ?? 'primary';
       const today = new Date();
       const events = await fetchEventsForDate(client as unknown as Auth.OAuth2Client, calId, today);
