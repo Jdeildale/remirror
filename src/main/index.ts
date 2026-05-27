@@ -10,10 +10,14 @@ import { createTray } from './tray';
 import { registerHotkey, unregisterAllHotkeys } from './hotkey';
 import { openMainWindow } from './windows/main-window';
 import { registerIpc } from './ipc';
+import { CalendarSync } from './calendar/sync';
+import { hasStoredAuth } from './google/auth';
 
 declare global {
   // eslint-disable-next-line no-var
   var __remirrorQuitting: boolean | undefined;
+  // eslint-disable-next-line no-var
+  var __remirrorCalendarSync: CalendarSync | undefined;
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -53,6 +57,22 @@ app.whenReady().then(async () => {
     } else {
       engine.start();
     }
+
+    const calendarSync = new CalendarSync();
+    global.__remirrorCalendarSync = calendarSync;
+
+    if (hasStoredAuth()) {
+      calendarSync.start();
+    }
+
+    // Hook engine lifecycle: pause calendar sync when capture pauses/stops
+    engine.on('status', (status) => {
+      if (status === 'active' || status === 'excluded') {
+        if (hasStoredAuth()) calendarSync.start();
+      } else {
+        calendarSync.stop();
+      }
+    });
 
     log.info(`${BRAND.appName} ready`);
   } catch (err) {
