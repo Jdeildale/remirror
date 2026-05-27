@@ -12,6 +12,7 @@ import { openMainWindow } from './windows/main-window';
 import { registerIpc } from './ipc';
 import { CalendarSync } from './calendar/sync';
 import { hasStoredAuth } from './google/auth';
+import { dailyStatsCache } from './stats/cache';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -43,6 +44,7 @@ app.whenReady().then(async () => {
     openDatabase(dbPath);
 
     const engine = new CaptureEngine(getDatabase());
+    dailyStatsCache.attachEngine(engine);
 
     installLifecycleHandlers(engine);
     registerIpc(engine);
