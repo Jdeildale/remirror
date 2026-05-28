@@ -15,6 +15,58 @@ function parseHHMM(s: string | undefined, fallback: number): number {
   return h * 60 + m;
 }
 
+interface LaidOutEvent {
+  event: CalendarEventDTO;
+  columnIndex: number;
+  columnCount: number;
+}
+
+/**
+ * Google-Calendar-style overlap layout. Sweep events sorted by start time and
+ * place each in the leftmost column whose previous event has already ended.
+ * Events that mutually overlap form a "cluster"; the cluster's max column
+ * usage becomes the divisor for every event in that cluster, so the band's
+ * width splits evenly. Non-overlapping events get columnCount=1 (full width).
+ */
+function layoutEvents(events: CalendarEventDTO[]): LaidOutEvent[] {
+  const sorted = [...events].sort((a, b) => a.startTimeMs - b.startTimeMs);
+
+  const columnEnds: number[] = []; // last endTimeMs assigned to each column
+  const assignments: Array<{ event: CalendarEventDTO; col: number; clusterId: number }> = [];
+  let clusterId = 0;
+  let clusterEnd = -Infinity;
+
+  for (const e of sorted) {
+    if (e.startTimeMs >= clusterEnd && columnEnds.length > 0) {
+      clusterId += 1;
+      columnEnds.length = 0;
+      clusterEnd = -Infinity;
+    }
+    let col = columnEnds.findIndex(end => end <= e.startTimeMs);
+    if (col === -1) {
+      col = columnEnds.length;
+      columnEnds.push(e.endTimeMs);
+    } else {
+      columnEnds[col] = e.endTimeMs;
+    }
+    assignments.push({ event: e, col, clusterId });
+    if (e.endTimeMs > clusterEnd) clusterEnd = e.endTimeMs;
+  }
+
+  // Per-cluster max column count
+  const clusterColumnCount = new Map<number, number>();
+  for (const a of assignments) {
+    const cur = clusterColumnCount.get(a.clusterId) ?? 0;
+    if (a.col + 1 > cur) clusterColumnCount.set(a.clusterId, a.col + 1);
+  }
+
+  return assignments.map(a => ({
+    event: a.event,
+    columnIndex: a.col,
+    columnCount: clusterColumnCount.get(a.clusterId) ?? 1,
+  }));
+}
+
 export function CalendarColumn({ workHoursStart, workHoursEnd }: Props) {
   const api = useRemirror();
   const [events, setEvents] = useState<CalendarEventDTO[]>([]);
@@ -80,12 +132,14 @@ export function CalendarColumn({ workHoursStart, workHoursEnd }: Props) {
         style={{ top: `${60 + topFor(whStart)}px`, height: `${(whEnd - whStart) * pixelsPerMs}px` }}
       />
 
-      {events.map(e => (
+      {layoutEvents(events).map(({ event, columnIndex, columnCount }) => (
         <CalendarEventBlock
-          key={e.id}
-          event={e}
+          key={event.id}
+          event={event}
           pixelsPerMs={pixelsPerMs}
-          topOffsetPx={60 + topFor(e.startTimeMs)}
+          topOffsetPx={60 + topFor(event.startTimeMs)}
+          columnIndex={columnIndex}
+          columnCount={columnCount}
         />
       ))}
 
