@@ -4,7 +4,6 @@ import { fetchEventsForDate } from '../google/calendar';
 import { store } from '../store';
 import { getDatabase } from '../db/index';
 import log from '../log';
-import { Auth } from 'googleapis';
 
 const SYNC_INTERVAL_MS = 15 * 60_000;
 
@@ -55,7 +54,7 @@ export class CalendarSync {
       }
       const calId = store.get('google').calendarId ?? 'primary';
       const today = new Date();
-      const events = await fetchEventsForDate(client as unknown as Auth.OAuth2Client, calId, today);
+      const events = await fetchEventsForDate(client, calId, today);
       const dateKey = isoDate(today);
       // Refresh today's events: delete then re-upsert (handles deleted events)
       this.repo.deleteByDate(dateKey);

@@ -1,10 +1,19 @@
 import { safeStorage } from 'electron';
-import { OAuth2Client } from 'google-auth-library';
+import { Auth } from 'googleapis';
 import http from 'node:http';
 import { URL } from 'node:url';
 import { shell } from 'electron';
 import { store } from '../store';
 import log from '../log';
+
+// Use the OAuth2Client class bundled inside `googleapis` (v10) rather than the
+// top-level `google-auth-library` (v9). The two are different class objects at
+// runtime, and `google.calendar({ auth: client })` does an `instanceof` check
+// against its own bundled copy — if the check fails, the request is sent
+// without an Authorization header and Google returns
+// "Method doesn't allow unregistered callers".
+const { OAuth2Client } = Auth;
+type OAuth2Client = Auth.OAuth2Client;
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly'];
 
