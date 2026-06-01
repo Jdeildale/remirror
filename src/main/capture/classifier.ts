@@ -17,13 +17,9 @@ export function classify(
   const haystack = `${input.appName ?? ''} ${input.windowTitle ?? ''}`.toLowerCase();
   if (!haystack.trim()) return { label: 'unclassified', confidence: 0 };
 
-  // Stable ordering by display_order, then by id, so first-match-wins is deterministic.
-  const ordered = [...projects].sort((a, b) => {
-    if (a.display_order !== b.display_order) return a.display_order - b.display_order;
-    return a.id.localeCompare(b.id);
-  });
-
-  for (const project of ordered) {
+  // Projects are passed pre-sorted (ORDER BY display_order, id) from reloadProjects().
+  // No per-call sort needed — first-match-wins is already deterministic.
+  for (const project of projects) {
     for (const kw of project.keywords) {
       if (!kw) continue;
       if (haystack.includes(kw.toLowerCase())) {
