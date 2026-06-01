@@ -28,8 +28,10 @@ const KEPT_THRESHOLD = 0.80;
 const PARTIAL_THRESHOLD = 0.20;
 
 export function computeAdherence(input: AdherenceInput): AdherenceResult {
-  const eventDurationMs = Math.max(0, input.event.endMs - input.event.startMs);
-  if (!input.event.projectLabel || eventDurationMs === 0) {
+  const rawDurationMs = input.event.endMs - input.event.startMs;
+  // Guard: NaN, Infinity, or backwards-time events all collapse to zero.
+  const eventDurationMs = Number.isFinite(rawDurationMs) ? Math.max(0, rawDurationMs) : 0;
+  if (!input.event.projectLabel || eventDurationMs <= 0) {
     return { status: 'did-not-start', overlapMs: 0, eventDurationMs, ratio: 0 };
   }
 
@@ -42,10 +44,15 @@ export function computeAdherence(input: AdherenceInput): AdherenceResult {
     overlapMs += overlap;
   }
 
-  const ratio = overlapMs / eventDurationMs;
+  const ratio = eventDurationMs > 0 ? overlapMs / eventDurationMs : 0;
   let status: AdherenceStatus = 'did-not-start';
-  if (ratio >= KEPT_THRESHOLD) status = 'kept';
-  else if (ratio >= PARTIAL_THRESHOLD) status = 'partial';
+  if (!Number.isFinite(ratio)) {
+    // Defensive: keep status as did-not-start; log nothing here (caller logs if needed).
+  } else if (ratio >= KEPT_THRESHOLD) {
+    status = 'kept';
+  } else if (ratio >= PARTIAL_THRESHOLD) {
+    status = 'partial';
+  }
 
-  return { status, overlapMs, eventDurationMs, ratio };
+  return { status, overlapMs, eventDurationMs, ratio: Number.isFinite(ratio) ? ratio : 0 };
 }

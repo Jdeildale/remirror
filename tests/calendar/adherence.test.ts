@@ -86,4 +86,37 @@ describe('computeAdherence', () => {
     expect(r.status).toBe('did-not-start');
     expect(r.overlapMs).toBe(0);
   });
+
+  it('returns "did-not-start" and zero ratio when startMs > endMs (backwards-time event)', () => {
+    const input: AdherenceInput = {
+      event: { startMs: HOUR, endMs: 0, projectLabel: 'Project' },
+      sessions: [{ startMs: 0, endMs: HOUR, projectLabel: 'Project' }],
+    };
+    const r = computeAdherence(input);
+    expect(r.status).toBe('did-not-start');
+    expect(r.eventDurationMs).toBe(0);
+    expect(r.ratio).toBe(0);
+  });
+
+  it('returns "did-not-start" and zero ratio when startMs is NaN', () => {
+    const input: AdherenceInput = {
+      event: { startMs: NaN, endMs: HOUR, projectLabel: 'Project' },
+      sessions: [{ startMs: 0, endMs: HOUR, projectLabel: 'Project' }],
+    };
+    const r = computeAdherence(input);
+    expect(r.status).toBe('did-not-start');
+    expect(r.eventDurationMs).toBe(0);
+    expect(r.ratio).toBe(0);
+  });
+
+  it('returns "did-not-start" when endMs is Infinity', () => {
+    const input: AdherenceInput = {
+      event: { startMs: 0, endMs: Infinity, projectLabel: 'Project' },
+      sessions: [{ startMs: 0, endMs: HOUR, projectLabel: 'Project' }],
+    };
+    const r = computeAdherence(input);
+    expect(r.status).toBe('did-not-start');
+    expect(r.eventDurationMs).toBe(0);
+    expect(r.ratio).toBe(0);
+  });
 });
