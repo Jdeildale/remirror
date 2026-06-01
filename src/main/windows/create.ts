@@ -14,17 +14,37 @@ export function createMainBrowserWindow(): BrowserWindow {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.mjs'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
+      webviewTag: false,
     },
   });
 
   win.on('ready-to-show', () => win.show());
 
   // External links open in the OS browser, never in-app.
+  // Only http/https/mailto schemes are forwarded; all others are silently denied.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:') {
+        void shell.openExternal(url);
+      }
+    } catch { /* malformed URL, ignore */ }
     return { action: 'deny' };
+  });
+
+  // Also block in-window navigation to external schemes
+  win.webContents.on('will-navigate', (e, url) => {
+    e.preventDefault();
+    try {
+      const u = new URL(url);
+      if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:') {
+        void shell.openExternal(url);
+      }
+    } catch { /* ignore */ }
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
