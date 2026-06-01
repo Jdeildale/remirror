@@ -26,6 +26,32 @@ import { generateBrief } from './brief/generate';
 import { regenStatus } from './brief/regen-policy';
 import { hasAnthropicKey, writeAnthropicKey, clearAnthropicKey } from './anthropic/key';
 import { testConnection } from './anthropic/client';
+import { MODEL_IDS } from './anthropic/models';
+
+// ── IPC input validation helpers ─────────────────────────────────────────────
+function assertString(value: unknown, name: string, maxLen = 10_000): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`IPC validation: ${name} must be a non-empty string`);
+  }
+  if (value.length > maxLen) {
+    throw new Error(`IPC validation: ${name} exceeds max length (${maxLen})`);
+  }
+  return value;
+}
+
+function assertBool(value: unknown, name: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(`IPC validation: ${name} must be a boolean`);
+  }
+  return value;
+}
+
+function assertHHMM(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) {
+    throw new Error(`IPC validation: ${name} must match HH:MM`);
+  }
+  return value;
+}
 
 function isoDateLocal(d: Date): string {
   const y = d.getFullYear();
@@ -35,6 +61,11 @@ function isoDateLocal(d: Date): string {
 }
 
 export function registerIpc(engine: CaptureEngine): void {
+  // A.11: Hot-reload safety — remove any handlers registered by a previous call.
+  for (const channel of Object.values(IPC)) {
+    ipcMain.removeHandler(channel);
+  }
+
   const db = getDatabase();
   const repo = new SessionRepo(db);
 
@@ -47,10 +78,15 @@ export function registerIpc(engine: CaptureEngine): void {
   engine.on('change', () => broadcast(IPC.SESSIONS_CHANGED));
 
   // Sessions
-  ipcMain.handle(IPC.SESSIONS_RECENT, (_e, limit: number) => repo.recentSessions(limit));
+  ipcMain.handle(IPC.SESSIONS_RECENT, (_e, limit: unknown) => {
+    const safeLimit = Math.min(Math.max(1, Math.floor(Number(limit) || 20)), 1000);
+    return repo.recentSessions(safeLimit);
+  });
   ipcMain.handle(IPC.SESSIONS_TODAY_STATS, (): TodayStats => repo.todayStats(Date.now()));
-  ipcMain.handle(IPC.SESSIONS_RECLASSIFY, (_e, id: string, label: string) => {
-    repo.reclassify(id, label);
+  ipcMain.handle(IPC.SESSIONS_RECLASSIFY, (_e, id: unknown, label: unknown) => {
+    const safeId = assertString(id, 'id');
+    const safeLabel = assertString(label, 'label');
+    repo.reclassify(safeId, safeLabel);
     broadcast(IPC.SESSIONS_CHANGED);
   });
 
@@ -59,19 +95,31 @@ export function registerIpc(engine: CaptureEngine): void {
     return (db.prepare('SELECT * FROM projects ORDER BY display_order, id').all() as Array<any>)
       .map(r => ({ ...r, keywords: JSON.parse(r.keywords ?? '[]') }));
   });
-  ipcMain.handle(IPC.PROJECTS_UPSERT, (_e, p: Project) => {
-    const id = p.id ?? ulid();
-    const keywords = JSON.stringify(p.keywords ?? []);
+  ipcMain.handle(IPC.PROJECTS_UPSERT, (_e, p: unknown) => {
+    if (!p || typeof p !== 'object') throw new Error('IPC validation: project must be an object');
+    const proj = p as Record<string, unknown>;
+    const label = assertString(proj['label'], 'label', 500);
+    if (proj['keywords'] !== undefined && !Array.isArray(proj['keywords'])) {
+      throw new Error('IPC validation: keywords must be an array');
+    }
+    if (Array.isArray(proj['keywords'])) {
+      for (const kw of proj['keywords'] as unknown[]) {
+        if (typeof kw !== 'string') throw new Error('IPC validation: each keyword must be a string');
+      }
+    }
+    const safeP = p as Project;
+    const id = safeP.id ?? ulid();
+    const keywords = JSON.stringify(safeP.keywords ?? []);
     db.prepare(`
       INSERT INTO projects (id, label, category, keywords, goal_id, display_order)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         label=excluded.label, category=excluded.category, keywords=excluded.keywords,
         goal_id=excluded.goal_id, display_order=excluded.display_order
-    `).run(id, p.label, p.category, keywords, p.goal_id, p.display_order ?? 0);
+    `).run(id, label, safeP.category, keywords, safeP.goal_id, safeP.display_order ?? 0);
     engine.reloadProjects();
     broadcast(IPC.PROJECTS_CHANGED);
-    return { ...p, id, keywords: p.keywords ?? [] };
+    return { ...safeP, id, keywords: safeP.keywords ?? [] };
   });
   ipcMain.handle(IPC.PROJECTS_DELETE, (_e, id: string) => {
     db.prepare('DELETE FROM projects WHERE id = ?').run(id);
@@ -83,8 +131,18 @@ export function registerIpc(engine: CaptureEngine): void {
   ipcMain.handle(IPC.EXCLUSIONS_LIST, (): Exclusion[] => {
     return db.prepare('SELECT * FROM exclusions ORDER BY id').all() as Exclusion[];
   });
-  ipcMain.handle(IPC.EXCLUSIONS_UPSERT, (_e, ex: Exclusion) => {
-    const id = ex.id ?? ulid();
+  ipcMain.handle(IPC.EXCLUSIONS_UPSERT, (_e, ex: unknown) => {
+    if (!ex || typeof ex !== 'object') throw new Error('IPC validation: exclusion must be an object');
+    const excl = ex as Record<string, unknown>;
+    // At least one of app_name or window_title_contains must be a non-empty string
+    if (excl['app_name'] !== undefined && excl['app_name'] !== null) {
+      assertString(excl['app_name'], 'app_name', 500);
+    }
+    if (excl['window_title_contains'] !== undefined && excl['window_title_contains'] !== null) {
+      assertString(excl['window_title_contains'], 'window_title_contains', 500);
+    }
+    const safeEx = ex as Exclusion;
+    const id = safeEx.id ?? ulid();
     db.prepare(`
       INSERT INTO exclusions (id, app_name, window_title_contains, reason)
       VALUES (?, ?, ?, ?)
@@ -92,9 +150,9 @@ export function registerIpc(engine: CaptureEngine): void {
         app_name=excluded.app_name,
         window_title_contains=excluded.window_title_contains,
         reason=excluded.reason
-    `).run(id, ex.app_name, ex.window_title_contains, ex.reason);
+    `).run(id, safeEx.app_name, safeEx.window_title_contains, safeEx.reason);
     engine.reloadExclusions();
-    return { ...ex, id };
+    return { ...safeEx, id };
   });
   ipcMain.handle(IPC.EXCLUSIONS_DELETE, (_e, id: string) => {
     db.prepare('DELETE FROM exclusions WHERE id = ?').run(id);
@@ -115,8 +173,14 @@ export function registerIpc(engine: CaptureEngine): void {
   ipcMain.handle(IPC.WORK_HOURS_GET, (): WorkHoursConfigDTO => {
     return store.get('workHours');
   });
-  ipcMain.handle(IPC.WORK_HOURS_SET, (_e, cfg: WorkHoursConfigDTO) => {
-    store.set('workHours', cfg);
+  ipcMain.handle(IPC.WORK_HOURS_SET, (_e, cfg: unknown) => {
+    if (!cfg || typeof cfg !== 'object') throw new Error('IPC validation: work hours config must be an object');
+    const c = cfg as Record<string, unknown>;
+    assertBool(c['enabled'], 'enabled');
+    assertHHMM(c['start'], 'start');
+    assertHHMM(c['end'], 'end');
+    assertBool(c['weekendsActive'], 'weekendsActive');
+    store.set('workHours', cfg as WorkHoursConfigDTO);
   });
 
   const calRepo = new CalendarRepo(db);
@@ -203,12 +267,22 @@ export function registerIpc(engine: CaptureEngine): void {
     return store.get('weeklyGoal') ?? null;
   });
 
-  ipcMain.handle(IPC.GOAL_SET, (_e, g: { text: string; projectLabel?: string } | null): WeeklyGoalDTO | null => {
-    if (g === null) {
+  ipcMain.handle(IPC.GOAL_SET, (_e, g: unknown): WeeklyGoalDTO | null => {
+    if (g === null || g === undefined) {
       store.delete('weeklyGoal');
       return null;
     }
-    const stored: WeeklyGoalDTO = { text: g.text, projectLabel: g.projectLabel, setAt: Date.now() };
+    if (typeof g !== 'object') throw new Error('IPC validation: goal must be null or an object');
+    const goal = g as Record<string, unknown>;
+    const text = assertString(goal['text'], 'text', 500);
+    if (goal['projectLabel'] !== undefined && goal['projectLabel'] !== null) {
+      assertString(goal['projectLabel'], 'projectLabel', 500);
+    }
+    const stored: WeeklyGoalDTO = {
+      text,
+      projectLabel: typeof goal['projectLabel'] === 'string' ? goal['projectLabel'] : undefined,
+      setAt: Date.now(),
+    };
     store.set('weeklyGoal', stored);
     return stored;
   });
@@ -221,8 +295,9 @@ export function registerIpc(engine: CaptureEngine): void {
     return briefRepo.findByDate(today);
   });
 
-  ipcMain.handle(IPC.BRIEF_LIST_PAST, (_e, limit: number = 30): DailyBriefDTO[] => {
-    return briefRepo.listPast(limit);
+  ipcMain.handle(IPC.BRIEF_LIST_PAST, (_e, limit: unknown = 30): DailyBriefDTO[] => {
+    const safeLimit = Math.min(Math.max(1, Math.floor(Number(limit) || 30)), 365);
+    return briefRepo.listPast(safeLimit);
   });
 
   ipcMain.handle(IPC.BRIEF_GENERATE, (): { generationId: string } => {
@@ -247,11 +322,23 @@ export function registerIpc(engine: CaptureEngine): void {
     model: store.get('anthropic').model,
   }));
 
-  ipcMain.handle(IPC.ANTHROPIC_SET_KEY, (_e, key: string): void => {
+  ipcMain.handle(IPC.ANTHROPIC_SET_KEY, (_e, key: unknown): void => {
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('IPC validation: API key must be a non-empty string');
+    }
+    if (key.length > 500) {
+      throw new Error('IPC validation: API key exceeds maximum length');
+    }
+    if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key.trim())) {
+      throw new Error('IPC validation: API key format is invalid — expected sk-ant-...');
+    }
     writeAnthropicKey(key);
   });
 
-  ipcMain.handle(IPC.ANTHROPIC_SET_MODEL, (_e, modelId: string): void => {
+  ipcMain.handle(IPC.ANTHROPIC_SET_MODEL, (_e, modelId: unknown): void => {
+    if (typeof modelId !== 'string' || !(Object.values(MODEL_IDS) as string[]).includes(modelId)) {
+      throw new Error(`IPC validation: modelId must be one of: ${Object.values(MODEL_IDS).join(', ')}`);
+    }
     const current = store.get('anthropic');
     store.set('anthropic', { ...current, model: modelId });
   });
