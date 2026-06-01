@@ -4,23 +4,12 @@ Known issues and follow-up items that aren't blocking current phase completion. 
 
 ---
 
-## Orphan-recovery uses `start_time + 5min` instead of last heartbeat
+## ~~Orphan-recovery uses `start_time + 5min` instead of last heartbeat~~ — RESOLVED
 
 **Discovered in:** Phase 2a manual sweep (2026-05-27)
-**File:** `src/main/db/index.ts` → `recoverOrphanSessions()`
-**Severity:** Cosmetic / minor data integrity
+**Resolved in:** Batch B.1 — commit `c2617ea` (`fix(db): heartbeat-based orphan recovery (replaces start_time+5min)`)
 
-When the Electron process is killed without a graceful shutdown (e.g. `taskkill /F`, crash, system reboot), any session with `end_time = NULL` is left dangling in the DB. On next launch, `recoverOrphanSessions()` closes it with:
-
-```sql
-UPDATE sessions SET end_time = MIN(start_time + 5min, now) WHERE end_time IS NULL
-```
-
-The 5-minute slug is positioned at the session's `start_time`, regardless of when the user was actually last active. Result: a session opened at 3am that the user abandoned at 3:02am (then crashed at 9am) gets recorded as ending at 3:05am — but worse, multiple such phantoms can accumulate visually as "stripes" in the Timeline if the process was killed repeatedly during a dev session.
-
-**Fix direction:** add a per-session `last_heartbeat` column updated by the engine's existing 30s tick. On orphan-recovery, set `end_time = COALESCE(last_heartbeat, start_time + 5min)`. This makes the recovered duration reflect when the user was actually last active, not an arbitrary 5-min slug.
-
-**Why deferred:** the bug only manifests when the process is force-killed mid-session. Normal Quit-via-tray closes sessions gracefully via the `will-quit` handler. In real user operation this is rare (process crashes only).
+`recoverOrphanSessions()` now sets `end_time = COALESCE(last_heartbeat, start_time + (5 * 60 * 1000))`, where `last_heartbeat` is updated by the engine's 30-second tick. Recovered duration reflects when the user was last active, not an arbitrary 5-minute slug from session open.
 
 ---
 
@@ -38,3 +27,18 @@ Some user machines have other apps that grab the global shortcut `Alt+Shift+R` b
 - Surface the failure in the tray menu ("Hotkey unavailable — click here to rebind")
 
 **Why deferred:** the tray icon left-click already opens the window. The hotkey is a power-user nicety. Defer until rebinding UI lands as part of a broader Settings pass.
+
+---
+
+## BRIEF_CANCEL not wired (AbortController deferred)
+
+**Discovered in:** Audit Batch D.8 (2026-05-27)
+**File:** `src/main/ipc.ts` → `IPC.BRIEF_CANCEL` handler, `src/main/brief/generate.ts`
+**Severity:** UX — users cannot abort a slow generation mid-stream
+
+The `BRIEF_CANCEL` IPC channel is registered and receives the `generationId`, but does nothing beyond logging. A full abort requires:
+1. An `AbortController` stored in the `inFlightByDate` map alongside the `generationId`.
+2. The Anthropic streaming call in `generate.ts` wired to `signal: controller.signal`.
+3. On cancel: call `controller.abort()`, delete from map, emit a `{kind:'cancelled'}` stream event to the originating renderer.
+
+**Why deferred:** streaming abort was out of scope for the v0.3.0 brief MVP. Users can wait for completion or let the 90-second wall-clock cap trigger. Target: v0.3.2.
