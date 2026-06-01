@@ -17,7 +17,15 @@ import type {
   ProjectBreakdownDTO,
   WeeklyGoalDTO,
   GoogleStatusDTO,
+  DailyBriefDTO,
+  RegenStatusDTO,
+  AnthropicStatusDTO,
 } from '@shared/types';
+import { BriefRepo } from './brief/repo';
+import { generateBrief } from './brief/generate';
+import { regenStatus } from './brief/regen-policy';
+import { hasAnthropicKey, writeAnthropicKey, clearAnthropicKey } from './anthropic/key';
+import { testConnection } from './anthropic/client';
 
 function isoDateLocal(d: Date): string {
   const y = d.getFullYear();
@@ -203,6 +211,57 @@ export function registerIpc(engine: CaptureEngine): void {
     const stored: WeeklyGoalDTO = { text: g.text, projectLabel: g.projectLabel, setAt: Date.now() };
     store.set('weeklyGoal', stored);
     return stored;
+  });
+
+  // Brief + Anthropic
+  const briefRepo = new BriefRepo(db);
+
+  ipcMain.handle(IPC.BRIEF_TODAY, (): DailyBriefDTO | null => {
+    const today = isoDateLocal(new Date());
+    return briefRepo.findByDate(today);
+  });
+
+  ipcMain.handle(IPC.BRIEF_LIST_PAST, (_e, limit: number = 30): DailyBriefDTO[] => {
+    return briefRepo.listPast(limit);
+  });
+
+  ipcMain.handle(IPC.BRIEF_GENERATE, (): { generationId: string } => {
+    const generationId = ulid();
+    // Fire-and-forget: streams progress via BRIEF_STREAM broadcast
+    generateBrief(generationId).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      broadcast(IPC.BRIEF_STREAM, { kind: 'error', generationId, message, retryable: true });
+    });
+    return { generationId };
+  });
+
+  ipcMain.handle(IPC.BRIEF_REGEN_STATUS, (): RegenStatusDTO => {
+    const today = isoDateLocal(new Date());
+    const brief = briefRepo.findByDate(today);
+    const count = brief?.generationCount ?? 0;
+    return regenStatus(count);
+  });
+
+  ipcMain.handle(IPC.ANTHROPIC_STATUS, (): AnthropicStatusDTO => ({
+    hasKey: hasAnthropicKey(),
+    model: store.get('anthropic').model,
+  }));
+
+  ipcMain.handle(IPC.ANTHROPIC_SET_KEY, (_e, key: string): void => {
+    writeAnthropicKey(key);
+  });
+
+  ipcMain.handle(IPC.ANTHROPIC_SET_MODEL, (_e, modelId: string): void => {
+    const current = store.get('anthropic');
+    store.set('anthropic', { ...current, model: modelId });
+  });
+
+  ipcMain.handle(IPC.ANTHROPIC_TEST, async (): Promise<{ ok: boolean; error?: string }> => {
+    return testConnection();
+  });
+
+  ipcMain.handle(IPC.ANTHROPIC_CLEAR_KEY, (): void => {
+    clearAnthropicKey();
   });
 }
 
