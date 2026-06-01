@@ -4,6 +4,7 @@ import type { WorkHoursConfigDTO } from '@shared/ipc-contract';
 import { Input } from './Input';
 import { GoogleConnectButton } from './GoogleConnectButton';
 import { GoalEditor } from './GoalEditor';
+import { AnthropicApiCard } from './AnthropicApiCard';
 
 export function WorkHoursEditor() {
   const api = useRemirror();
@@ -79,6 +80,7 @@ export function WorkHoursEditor() {
 
       <GoalEditor />
       <GoogleConnectButton />
+      <AnthropicApiCard />
     </div>
   );
 }
