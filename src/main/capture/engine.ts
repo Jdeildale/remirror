@@ -166,8 +166,13 @@ export class CaptureEngine extends EventEmitter {
         return;
       }
       if (outcome.action === 'resume') {
-        this.repo.addPausedMs(this.active.id, outcome.addPausedMs);
-        this.active.pausedMs += outcome.addPausedMs;
+        const sessionDuration = now - this.active.startTime;
+        const maxPause = Math.max(0, sessionDuration - this.active.pausedMs);
+        const safeAdd = Math.max(0, Math.min(outcome.addPausedMs, maxPause));
+        if (safeAdd > 0) {
+          this.repo.addPausedMs(this.active.id, safeAdd);
+          this.active.pausedMs += safeAdd;
+        }
         this.active.idleStartedAt = null;
       }
       // active or resume → fall through to window-change check

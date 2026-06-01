@@ -54,3 +54,38 @@ describe('evaluateIdle', () => {
     expect((out as any).closeAt).toBe(1_000_000 - 700_000); // idle-start derived from idleSeconds
   });
 });
+
+describe('addPausedMs clamping (engine guard)', () => {
+  // The engine clamps outcome.addPausedMs to ensure paused_ms never exceeds
+  // session duration. This tests the clamping formula in isolation.
+  // Formula: safeAdd = Math.max(0, Math.min(addPausedMs, sessionDuration - existingPausedMs))
+  function clamp(addPausedMs: number, sessionDurationMs: number, existingPausedMs: number): number {
+    const maxPause = Math.max(0, sessionDurationMs - existingPausedMs);
+    return Math.max(0, Math.min(addPausedMs, maxPause));
+  }
+
+  it('clamps addPausedMs to session duration when value is impossibly large', () => {
+    // Session is 10 minutes old, 0 already paused. evaluateIdle returned 20 minutes.
+    const sessionDuration = 10 * 60_000;
+    const safeAdd = clamp(20 * 60_000, sessionDuration, 0);
+    expect(safeAdd).toBeLessThanOrEqual(sessionDuration);
+    expect(safeAdd).toBe(sessionDuration); // capped at 10 min
+  });
+
+  it('returns zero when paused_ms already equals session duration', () => {
+    const sessionDuration = 10 * 60_000;
+    const safeAdd = clamp(5 * 60_000, sessionDuration, sessionDuration);
+    expect(safeAdd).toBe(0);
+  });
+
+  it('returns the actual value when it is within bounds', () => {
+    const safeAdd = clamp(2 * 60_000, 10 * 60_000, 3 * 60_000);
+    // maxPause = 10 - 3 = 7 min; addPausedMs = 2 min → 2 min is safe
+    expect(safeAdd).toBe(2 * 60_000);
+  });
+
+  it('clamps negative addPausedMs to zero', () => {
+    const safeAdd = clamp(-1000, 10 * 60_000, 0);
+    expect(safeAdd).toBe(0);
+  });
+});
