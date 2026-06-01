@@ -102,7 +102,9 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  // Tray-resident: do nothing on window close.
+  // Intentionally no-op. Remirror is tray-resident — closing the only window
+  // hides it; only the Quit menu item or `before-quit` should kill the app.
+  // DO NOT call app.quit() here — it would break the tray model.
 });
 
 app.on('will-quit', () => {
