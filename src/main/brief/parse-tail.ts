@@ -1,14 +1,4 @@
-// TEMPORARY — StructuredTail moved to @shared/types in Task 17
-type StructuredTail = {
-  dayShape: 'diffuse' | 'anchored' | 'fragmented_bursts' | 'stretched_focus' | 'rest';
-  dominantFragmentationPattern: 'morning_drift' | 'afternoon_slip' | 'calendar_collision' | 'context_thrash' | 'none';
-  tomorrowFirst90: {
-    startLocal: string;
-    target: string;
-    supportingEventId: string | null;
-    competingEventId: string | null;
-  };
-};
+import type { StructuredTail } from '@shared/types';
 
 const DAY_SHAPES = ['diffuse', 'anchored', 'fragmented_bursts', 'stretched_focus', 'rest'] as const;
 const FRAGMENTATION_PATTERNS = ['morning_drift', 'afternoon_slip', 'calendar_collision', 'context_thrash', 'none'] as const;

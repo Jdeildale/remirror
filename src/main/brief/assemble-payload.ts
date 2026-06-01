@@ -45,7 +45,7 @@ export function assembleBriefPayload(db: Database.Database, now: Date, input: As
   const dayStartMs = dayStart.getTime();
   const dayEndMs = dayStartMs + 24 * 3_600_000 - 1;
 
-  const stats = computeDailyStats(db, now) as unknown as DailyStatsDTO;
+  const stats = computeDailyStats(db, now);
   const projectBreakdown = computeProjectBreakdown(db, now).slice(0, 5);
 
   // Sessions for adherence computation

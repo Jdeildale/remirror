@@ -1,16 +1,5 @@
 import type Database from 'better-sqlite3';
-
-// TEMPORARY — moved to @shared/types in Task 17
-type StructuredTail = {
-  dayShape: 'diffuse' | 'anchored' | 'fragmented_bursts' | 'stretched_focus' | 'rest';
-  dominantFragmentationPattern: 'morning_drift' | 'afternoon_slip' | 'calendar_collision' | 'context_thrash' | 'none';
-  tomorrowFirst90: { startLocal: string; target: string; supportingEventId: string | null; competingEventId: string | null };
-};
-type DailyBriefDTO = {
-  date: string; generatedAt: number; generationCount: number; model: string; promptVersion: string;
-  inputTokens: number; outputTokens: number; headline: string; story: string; whatHeld: string;
-  whatFragmented: string; tomorrowFirst90: string; rawMarkdown: string; structuredTail: StructuredTail | null;
-};
+import type { DailyBriefDTO, StructuredTail } from '@shared/types';
 
 export class BriefRepo {
   constructor(private db: Database.Database) {}

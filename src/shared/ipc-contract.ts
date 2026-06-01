@@ -8,6 +8,10 @@ import type {
   ProjectBreakdownDTO,
   WeeklyGoalDTO,
   GoogleStatusDTO,
+  DailyBriefDTO,
+  RegenStatusDTO,
+  AnthropicStatusDTO,
+  BriefStreamEvent,
 } from './types';
 
 export const IPC = {
@@ -63,6 +67,20 @@ export const IPC = {
   // Goal
   GOAL_GET: 'goal:get',
   GOAL_SET: 'goal:set',
+
+  // Brief
+  BRIEF_TODAY: 'brief:today',
+  BRIEF_LIST_PAST: 'brief:list_past',
+  BRIEF_GENERATE: 'brief:generate',
+  BRIEF_STREAM: 'brief:stream',
+  BRIEF_REGEN_STATUS: 'brief:regen_status',
+
+  // Anthropic
+  ANTHROPIC_STATUS: 'anthropic:status',
+  ANTHROPIC_SET_KEY: 'anthropic:set_key',
+  ANTHROPIC_SET_MODEL: 'anthropic:set_model',
+  ANTHROPIC_TEST: 'anthropic:test',
+  ANTHROPIC_CLEAR_KEY: 'anthropic:clear_key',
 } as const;
 
 export interface WorkHoursConfigDTO {
@@ -115,4 +133,15 @@ export interface RemirrorAPI {
   onGoogleStatusChanged(cb: (s: GoogleStatusDTO) => void): () => void;
   getGoal(): Promise<WeeklyGoalDTO | null>;
   setGoal(g: { text: string; projectLabel?: string } | null): Promise<WeeklyGoalDTO | null>;
+
+  briefToday(): Promise<DailyBriefDTO | null>;
+  briefListPast(limit?: number): Promise<DailyBriefDTO[]>;
+  briefGenerate(): Promise<{ generationId: string }>;
+  briefRegenStatus(): Promise<RegenStatusDTO>;
+  onBriefStream(cb: (e: BriefStreamEvent) => void): () => void;
+  anthropicStatus(): Promise<AnthropicStatusDTO>;
+  anthropicSetKey(key: string): Promise<void>;
+  anthropicSetModel(modelId: string): Promise<void>;
+  anthropicTest(): Promise<{ ok: boolean; error?: string }>;
+  anthropicClearKey(): Promise<void>;
 }

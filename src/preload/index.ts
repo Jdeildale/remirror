@@ -54,6 +54,21 @@ const api: RemirrorAPI = {
   },
   getGoal: () => ipcRenderer.invoke(IPC.GOAL_GET),
   setGoal: (g) => ipcRenderer.invoke(IPC.GOAL_SET, g),
+
+  briefToday: () => ipcRenderer.invoke(IPC.BRIEF_TODAY),
+  briefListPast: (limit) => ipcRenderer.invoke(IPC.BRIEF_LIST_PAST, limit),
+  briefGenerate: () => ipcRenderer.invoke(IPC.BRIEF_GENERATE),
+  briefRegenStatus: () => ipcRenderer.invoke(IPC.BRIEF_REGEN_STATUS),
+  onBriefStream: (cb) => {
+    const handler = (_e: unknown, evt: unknown) => cb(evt as never);
+    ipcRenderer.on(IPC.BRIEF_STREAM, handler);
+    return () => ipcRenderer.off(IPC.BRIEF_STREAM, handler);
+  },
+  anthropicStatus: () => ipcRenderer.invoke(IPC.ANTHROPIC_STATUS),
+  anthropicSetKey: (key) => ipcRenderer.invoke(IPC.ANTHROPIC_SET_KEY, key),
+  anthropicSetModel: (modelId) => ipcRenderer.invoke(IPC.ANTHROPIC_SET_MODEL, modelId),
+  anthropicTest: () => ipcRenderer.invoke(IPC.ANTHROPIC_TEST),
+  anthropicClearKey: () => ipcRenderer.invoke(IPC.ANTHROPIC_CLEAR_KEY),
 };
 
 contextBridge.exposeInMainWorld('remirror', api);

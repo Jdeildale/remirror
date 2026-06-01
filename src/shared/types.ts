@@ -73,3 +73,48 @@ export interface GoogleStatusDTO {
   syncedAt: number | null;
   lastError: string | null;
 }
+
+export interface StructuredTail {
+  dayShape: 'diffuse' | 'anchored' | 'fragmented_bursts' | 'stretched_focus' | 'rest';
+  dominantFragmentationPattern: 'morning_drift' | 'afternoon_slip' | 'calendar_collision' | 'context_thrash' | 'none';
+  tomorrowFirst90: {
+    startLocal: string;
+    target: string;
+    supportingEventId: string | null;
+    competingEventId: string | null;
+  };
+}
+
+export interface DailyBriefDTO {
+  date: string;
+  generatedAt: number;
+  generationCount: number;
+  model: string;
+  promptVersion: string;
+  inputTokens: number;
+  outputTokens: number;
+  headline: string;
+  story: string;
+  whatHeld: string;
+  whatFragmented: string;
+  tomorrowFirst90: string;
+  rawMarkdown: string;
+  structuredTail: StructuredTail | null;
+}
+
+export interface RegenStatusDTO {
+  used: number;
+  cap: number;
+  locked: boolean;
+}
+
+export interface AnthropicStatusDTO {
+  hasKey: boolean;
+  model: string;
+}
+
+export type BriefStreamEvent =
+  | { kind: 'text_delta'; generationId: string; delta: string }
+  | { kind: 'section_complete'; generationId: string; section: 'headline' | 'story' | 'what_held' | 'what_fragmented' | 'tomorrow_first_90' }
+  | { kind: 'done'; generationId: string; brief: DailyBriefDTO }
+  | { kind: 'error'; generationId: string; message: string; retryable: boolean };
