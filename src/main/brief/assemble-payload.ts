@@ -88,7 +88,7 @@ export function assembleBriefPayload(db: Database.Database, now: Date, input: As
   // Goal progress this week: sum effective work-kind sessions matching goal.projectLabel over last 7 days
   let goalProgressMsThisWeek = 0;
   if (input.goal && input.goal.projectLabel) {
-    const weekStartMs = Date.now() - SEVEN_DAYS_MS;
+    const weekStartMs = now.getTime() - SEVEN_DAYS_MS;
     const rows = db.prepare(`
       SELECT start_time, end_time, paused_ms
       FROM sessions

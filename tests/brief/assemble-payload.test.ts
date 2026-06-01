@@ -93,6 +93,33 @@ describe('assembleBriefPayload', () => {
     expect(payload.goalProgressMsThisWeek).toBe(25 * MIN);
   });
 
+  it('goalProgressMsThisWeek uses injected now, not real wall-clock Date.now()', () => {
+    // Create a session 6 days before a fixed reference point
+    const fixedNow = new Date('2026-06-01T12:00:00.000Z');
+    const sixDaysAgo = fixedNow.getTime() - 6 * 24 * 3_600_000;
+    const id1 = sessions.open({
+      startTime: sixDaysAgo,
+      appName: 'a', windowTitle: 't', displayId: 0,
+      projectLabel: 'Oracle', confidence: 1,
+    });
+    sessions.close(id1, sixDaysAgo + 30 * MIN);
+
+    // With fixedNow: the session is 6 days ago — within the 7-day window
+    const payloadWithin = assembleBriefPayload(db, fixedNow, {
+      workHours: { enabled: false, start: '09:00', end: '17:00', weekendsActive: false },
+      goal: { text: 'Goal', projectLabel: 'Oracle', setAt: Date.now() },
+    });
+    expect(payloadWithin.goalProgressMsThisWeek).toBe(30 * MIN);
+
+    // With a now 8 days later: the session is 14 days ago — outside the 7-day window
+    const futureNow = new Date(fixedNow.getTime() + 8 * 24 * 3_600_000);
+    const payloadOutside = assembleBriefPayload(db, futureNow, {
+      workHours: { enabled: false, start: '09:00', end: '17:00', weekendsActive: false },
+      goal: { text: 'Goal', projectLabel: 'Oracle', setAt: Date.now() },
+    });
+    expect(payloadOutside.goalProgressMsThisWeek).toBe(0);
+  });
+
   it('passes calendar events with adherence status into payload', () => {
     // Insert a calendar event manually
     db.prepare(`
