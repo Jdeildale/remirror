@@ -23,18 +23,19 @@ declare global {
 
 let captureEngine: import('./capture/engine').CaptureEngine | null = null;
 
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-  process.exit(0);
-}
-
 // When a second copy of Remirror is launched (e.g. user double-clicks the icon),
-// the second instance has already exited above. Focus our existing window instead
+// the second instance has already exited below. Focus our existing window instead
 // of leaving the user with no feedback.
+// IMPORTANT: this handler must be registered BEFORE requestSingleInstanceLock().
 app.on('second-instance', () => {
   openMainWindow();
 });
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  log.info('Another instance running; exiting');
+  app.exit(0);
+}
 
 app.setAppUserModelId(BRAND.appId);
 
