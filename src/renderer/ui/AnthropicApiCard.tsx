@@ -30,23 +30,52 @@ export function AnthropicApiCard() {
   async function saveKey() {
     if (!draftKey.trim()) return;
     setBusy(true);
-    try { await api.anthropicSetKey(draftKey.trim()); setDraftKey(''); await refresh(); }
-    finally { setBusy(false); }
+    try {
+      await api.anthropicSetKey(draftKey.trim());
+      setDraftKey('');
+      await refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestResult({ ok: false, error: msg });
+    } finally {
+      setBusy(false);
+    }
   }
   async function clearKey() {
     setBusy(true);
-    try { await api.anthropicClearKey(); await refresh(); }
-    finally { setBusy(false); }
+    try {
+      await api.anthropicClearKey();
+      await refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestResult({ ok: false, error: msg });
+    } finally {
+      setBusy(false);
+    }
   }
   async function changeModel(id: string) {
     setBusy(true);
-    try { await api.anthropicSetModel(id); await refresh(); }
-    finally { setBusy(false); }
+    try {
+      await api.anthropicSetModel(id);
+      await refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestResult({ ok: false, error: msg });
+    } finally {
+      setBusy(false);
+    }
   }
   async function runTest() {
-    setBusy(true); setTestResult(null);
-    try { setTestResult(await api.anthropicTest()); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setTestResult(null);
+    try {
+      setTestResult(await api.anthropicTest());
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestResult({ ok: false, error: msg });
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!status) return <div className="text-muted text-sm">Loading…</div>;
