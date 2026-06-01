@@ -4,8 +4,10 @@ const DAY_SHAPES = ['diffuse', 'anchored', 'fragmented_bursts', 'stretched_focus
 const FRAGMENTATION_PATTERNS = ['morning_drift', 'afternoon_slip', 'calendar_collision', 'context_thrash', 'none'] as const;
 
 export function parseStructuredTail(markdown: string): StructuredTail | null {
-  const match = markdown.match(/```json\s*([\s\S]*?)```/);
-  if (!match) return null;
+  // Use the LAST json block — defense against prompt drift / inline examples earlier in the doc
+  const matches = Array.from(markdown.matchAll(/```json\s*([\s\S]*?)```/g));
+  if (matches.length === 0) return null;
+  const match = matches[matches.length - 1];
 
   let raw: unknown;
   try { raw = JSON.parse(match[1]); } catch { return null; }
