@@ -6,7 +6,7 @@ import log, { configureFileTransport } from './log';
 import { openDatabase, getDatabase, closeDatabase } from './db/index';
 import { CaptureEngine } from './capture/engine';
 import { installLifecycleHandlers } from './capture/lifecycle';
-import { createTray } from './tray';
+import { createTray, destroyTray } from './tray';
 import { registerHotkey, unregisterAllHotkeys } from './hotkey';
 import { openMainWindow } from './windows/main-window';
 import { registerIpc } from './ipc';
@@ -20,6 +20,8 @@ declare global {
   // eslint-disable-next-line no-var
   var __remirrorCalendarSync: CalendarSync | undefined;
 }
+
+let captureEngine: import('./capture/engine').CaptureEngine | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -43,7 +45,8 @@ app.whenReady().then(async () => {
     const dbPath = path.join(app.getPath('userData'), 'remirror.db');
     openDatabase(dbPath);
 
-    const engine = new CaptureEngine(getDatabase());
+    captureEngine = new CaptureEngine(getDatabase());
+    const engine = captureEngine;
     dailyStatsCache.attachEngine(engine);
 
     installLifecycleHandlers(engine);
@@ -93,6 +96,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  destroyTray(captureEngine ?? undefined);
+  dailyStatsCache.detachEngine();
   global.__remirrorCalendarSync?.stop();
   unregisterAllHotkeys();
   closeDatabase();

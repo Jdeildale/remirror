@@ -11,6 +11,7 @@ import log from './log';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let tray: Tray | null = null;
+let statusHandler: ((status: EngineStatus) => void) | null = null;
 
 const STATUS_LABEL: Record<EngineStatus, string> = {
   active: '● Capture: Active',
@@ -36,9 +37,16 @@ export function createTray(engine: CaptureEngine): Tray {
   tray.on('click', () => openMainWindow());
 
   rebuildMenu(engine);
-  engine.on('status', () => rebuildMenu(engine));
+  statusHandler = () => rebuildMenu(engine);
+  engine.on('status', statusHandler);
   log.info('Tray created');
   return tray;
+}
+
+export function destroyTray(engine?: CaptureEngine): void {
+  if (statusHandler && engine) engine.off('status', statusHandler);
+  statusHandler = null;
+  if (tray) { tray.destroy(); tray = null; }
 }
 
 export function rebuildMenu(engine: CaptureEngine): void {

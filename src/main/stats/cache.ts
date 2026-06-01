@@ -19,11 +19,25 @@ function isoDateLocal(d: Date): string {
 export class DailyStatsCache {
   private cache: CacheEntry | null = null;
   private engine: CaptureEngine | null = null;
+  private changeHandler: (() => void) | null = null;
 
   attachEngine(engine: CaptureEngine): void {
     if (this.engine === engine) return;
+    // Remove old handler before re-attaching to a new engine
+    if (this.engine && this.changeHandler) {
+      this.engine.off('change', this.changeHandler);
+    }
     this.engine = engine;
-    engine.on('change', () => this.invalidate());
+    this.changeHandler = () => this.invalidate();
+    engine.on('change', this.changeHandler);
+  }
+
+  detachEngine(): void {
+    if (this.engine && this.changeHandler) {
+      this.engine.off('change', this.changeHandler);
+    }
+    this.engine = null;
+    this.changeHandler = null;
   }
 
   get(now: Date = new Date()): DailyStats {
