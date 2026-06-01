@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BANNED_VOCABULARY } from '@main/copy/banned-vocab';
+import { gateBrief } from '@main/brief/gate';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rendererDir = path.resolve(__dirname, '../../src/renderer');
@@ -46,5 +47,32 @@ describe('banned vocabulary in user-facing copy', () => {
       throw new Error(`Banned vocabulary found in renderer copy:\n${summary}`);
     }
     expect(violations.length).toBe(0);
+  });
+});
+
+describe('banned-vocab gate on spec §4.3 bad-day exemplar', () => {
+  it('the bad-day exemplar is gate-clean', () => {
+    const exemplar = `## Truth headline
+12 minutes focused. 4 hours 8 minutes elsewhere. Longest stretch: 12 min on Oracle at 2:14pm.
+
+## Today's story
+Today was diffuse. The Oracle dashboard got 12 minutes; the Jackie call and the 10am planning block did not start. Most of the day moved through Twitter, Slack, and the inbox in stretches of 4-9 minutes. There was no anchor block.
+
+## What held
+The 2:14pm Oracle attempt was the only stretch where attention landed on the commitment. It was short, and it was real.
+
+## What fragmented
+The morning never had a starting block. The first 90 minutes after wake went to inbox and Twitter in alternating 6-minute windows, and the day's shape followed from there.
+
+## Tomorrow's first 90
+9:00-10:30 on the Oracle dashboard, before the inbox opens. One target, one window, before anything else gets a vote.`;
+    expect(gateBrief(exemplar).ok).toBe(true);
+  });
+
+  it('rejects a brief that uses banned vocab', () => {
+    const bad = `## Truth headline\nYou missed the goal today.`;
+    const result = gateBrief(bad);
+    expect(result.ok).toBe(false);
+    expect(result.violatedWords).toContain('missed');
   });
 });
