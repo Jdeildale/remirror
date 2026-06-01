@@ -12,18 +12,28 @@ export interface WindowSnapshot {
   bounds: { x: number; y: number; width: number; height: number } | null;
 }
 
-export async function pollActiveWindow(): Promise<WindowSnapshot | null> {
+let lastGoodSnapshot: WindowSnapshot | null = null;
+
+export async function pollActiveWindow(timeoutMs = 1000): Promise<WindowSnapshot | null> {
   try {
-    const result = await activeWindow();
-    if (!result) return null;
-    return {
-      appName: result.owner?.name ?? null,
-      windowTitle: result.title ?? null,
-      pid: result.owner?.processId ?? null,
-      bounds: result.bounds ?? null,
-    };
+    const result = await Promise.race([
+      activeWindow(),
+      new Promise<null>(res => setTimeout(() => res(null), timeoutMs)),
+    ]);
+    if (result) {
+      const snapshot: WindowSnapshot = {
+        appName: result.owner?.name ?? null,
+        windowTitle: result.title ?? null,
+        pid: result.owner?.processId ?? null,
+        bounds: result.bounds ?? null,
+      };
+      lastGoodSnapshot = snapshot;
+      return snapshot;
+    }
+    // Timed out — return last good snapshot as fallback
+    return lastGoodSnapshot;
   } catch (err) {
     log.warn('pollActiveWindow failed:', err);
-    return null;
+    return lastGoodSnapshot;
   }
 }
