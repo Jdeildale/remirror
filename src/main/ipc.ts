@@ -76,7 +76,14 @@ export function registerIpc(engine: CaptureEngine): void {
   ipcMain.handle(IPC.ENGINE_RESUME, () => engine.resume());
 
   engine.on('status', (status) => broadcast(IPC.ENGINE_STATUS_CHANGED, status));
-  engine.on('change', () => broadcast(IPC.SESSIONS_CHANGED));
+  let pendingSessionsChanged: NodeJS.Timeout | null = null;
+  engine.on('change', () => {
+    if (pendingSessionsChanged) return;
+    pendingSessionsChanged = setTimeout(() => {
+      pendingSessionsChanged = null;
+      broadcast(IPC.SESSIONS_CHANGED);
+    }, 500);
+  });
 
   // Sessions
   ipcMain.handle(IPC.SESSIONS_RECENT, (_e, limit: unknown) => {
