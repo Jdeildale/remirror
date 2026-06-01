@@ -24,6 +24,7 @@ export class CalendarSync {
   private repo: CalendarRepo;
   private lastSyncAt: number | null = null;
   private lastError: string | null = null;
+  private lastSyncAttemptAt: number = 0;
 
   constructor() {
     this.repo = new CalendarRepo(getDatabase());
@@ -49,6 +50,11 @@ export class CalendarSync {
   /** Manual sync trigger. Returns true on success. */
   async syncNow(): Promise<boolean> {
     if (this.running) return false;
+    if (Date.now() - this.lastSyncAttemptAt < 60_000) {
+      log.info('Calendar syncNow skipped: < 60s since last attempt');
+      return false;
+    }
+    this.lastSyncAttemptAt = Date.now();
     this.running = true;
     try {
       const client = getAuthorizedClient();
