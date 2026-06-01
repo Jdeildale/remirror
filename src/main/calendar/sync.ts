@@ -1,5 +1,6 @@
+import { EventEmitter } from 'node:events';
 import { CalendarRepo } from './repo';
-import { getAuthorizedClient } from '../google/auth';
+import { getAuthorizedClient, disconnectGoogle } from '../google/auth';
 import { fetchEventsForDate } from '../google/calendar';
 import { store } from '../store';
 import { getDatabase } from '../db/index';
@@ -18,7 +19,12 @@ function eventLocalDate(startTimeMs: number): string {
   return isoDate(new Date(startTimeMs));
 }
 
-export class CalendarSync {
+export interface CalendarSyncEvents {
+  /** Emitted when the OAuth grant is detected as revoked (invalid_grant / 401). */
+  revoked: [lastError: string];
+}
+
+export class CalendarSync extends EventEmitter {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
   private repo: CalendarRepo;
@@ -27,6 +33,7 @@ export class CalendarSync {
   private lastSyncAttemptAt: number = 0;
 
   constructor() {
+    super();
     this.repo = new CalendarRepo(getDatabase());
   }
 
@@ -109,7 +116,21 @@ export class CalendarSync {
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.lastError = msg;
+      const status = (err as any)?.response?.status ?? (err as any)?.code;
+      const isRevoked =
+        msg.includes('invalid_grant') ||
+        status === 401;
+      if (isRevoked) {
+        const revokedMsg =
+          'Google access for Remirror was revoked. Reconnect to resume calendar sync.';
+        this.lastError = revokedMsg;
+        disconnectGoogle();
+        this.stop();
+        this.emit('revoked', revokedMsg);
+        log.warn('Calendar OAuth revoked — disconnected and stopped sync');
+      } else {
+        this.lastError = msg;
+      }
       log.warn('Calendar sync failed', msg);
       return false;
     } finally {

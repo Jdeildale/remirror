@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { app, dialog } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import path from 'path';
 import { BRAND } from '@shared/branding';
 import log, { configureFileTransport } from './log';
@@ -13,6 +13,7 @@ import { registerIpc } from './ipc';
 import { CalendarSync } from './calendar/sync';
 import { hasStoredAuth } from './google/auth';
 import { dailyStatsCache } from './stats/cache';
+import { IPC } from '@shared/ipc-contract';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -58,6 +59,14 @@ app.whenReady().then(async () => {
 
     const calendarSync = new CalendarSync();
     global.__remirrorCalendarSync = calendarSync;
+
+    // Broadcast OAuth revocation to all renderer windows so the UI can prompt reconnect.
+    calendarSync.on('revoked', (lastError: string) => {
+      const payload = { connected: false, syncedAt: null, lastError };
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IPC.GOOGLE_STATUS_CHANGED, payload);
+      }
+    });
 
     if (hasStoredAuth()) {
       calendarSync.start();
