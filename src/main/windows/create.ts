@@ -14,7 +14,13 @@ export function createMainBrowserWindow(): BrowserWindow {
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.mjs'),
-      sandbox: true,
+      // sandbox: false because Electron 32's ES-module preload (`index.mjs`) doesn't
+      // reliably expose contextBridge under sandbox: true on Windows — the bridge
+      // silently fails and `window.remirror` is undefined. Defense in depth still
+      // intact: contextIsolation + nodeIntegration:false + webviewTag:false +
+      // CSP + URL-scheme allowlist + IPC input validation. Revisit if Electron
+      // ships a more reliable sandboxed-ESM-preload path.
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: false,
