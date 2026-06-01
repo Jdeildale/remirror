@@ -24,6 +24,6 @@ nsis:
 # To publish a new release: `npm run release:win` (see package.json scripts).
 publish:
   provider: github
-  owner: thrivingmindmarketing-tmm
+  owner: Jdeildale
   repo: remirror
   releaseType: release
