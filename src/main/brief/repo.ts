@@ -45,9 +45,7 @@ export class BriefRepo {
     return rows.map(rowToDTO);
   }
 
-  bumpGenerationCount(date: string): void {
-    this.db.prepare('UPDATE daily_briefs SET generation_count = generation_count + 1 WHERE date = ?').run(date);
-  }
+
 }
 
 function rowToDTO(r: Record<string, unknown>): DailyBriefDTO {
