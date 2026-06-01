@@ -20,25 +20,27 @@ export class SessionRepo {
   open(input: OpenSessionInput): string {
     const id = ulid();
     this.db.prepare(`
-      INSERT INTO sessions (id, start_time, end_time, app_name, window_title, display_id, project_label, confidence, kind, paused_ms)
-      VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, 0)
+      INSERT INTO sessions (id, start_time, end_time, app_name, window_title, display_id, project_label, confidence, kind, paused_ms, last_heartbeat)
+      VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, 0, ?)
     `).run(
       id, input.startTime, input.appName, input.windowTitle, input.displayId,
-      input.projectLabel, input.confidence, input.kind ?? 'work',
+      input.projectLabel, input.confidence, input.kind ?? 'work', input.startTime,
     );
     return id;
   }
 
   close(id: string, endTime: number): void {
-    const row = this.db.prepare('SELECT start_time, kind, paused_ms FROM sessions WHERE id=?').get(id) as { start_time: number; kind: SessionKind; paused_ms: number } | undefined;
-    if (!row) return;
-    const effectiveDuration = endTime - row.start_time - row.paused_ms;
-    const newKind: SessionKind = row.kind === 'work' && effectiveDuration < TRANSITION_THRESHOLD_MS ? 'transition' : row.kind;
-    this.db.prepare('UPDATE sessions SET end_time = ?, kind = ? WHERE id = ?').run(endTime, newKind, id);
+    this.db.transaction(() => {
+      const row = this.db.prepare('SELECT start_time, kind, paused_ms FROM sessions WHERE id=?').get(id) as { start_time: number; kind: SessionKind; paused_ms: number } | undefined;
+      if (!row) return;
+      const effectiveDuration = endTime - row.start_time - row.paused_ms;
+      const newKind: SessionKind = row.kind === 'work' && effectiveDuration < TRANSITION_THRESHOLD_MS ? 'transition' : row.kind;
+      this.db.prepare('UPDATE sessions SET end_time = ?, kind = ?, last_heartbeat = ? WHERE id = ?').run(endTime, newKind, endTime, id);
+    })();
   }
 
   heartbeat(id: string, now: number): void {
-    this.db.prepare('UPDATE sessions SET end_time = ? WHERE id = ?').run(now, id);
+    this.db.prepare('UPDATE sessions SET end_time = ?, last_heartbeat = ? WHERE id = ?').run(now, now, id);
   }
 
   addPausedMs(id: string, ms: number): void {

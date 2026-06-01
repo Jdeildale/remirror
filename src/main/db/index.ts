@@ -31,23 +31,18 @@ export function getDatabase(): Database.Database {
 }
 
 export function closeDatabase(): void {
-  if (db) {
-    db.close();
-    db = null;
-  }
+  if (!db) return;
+  try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (err) { log.warn('WAL checkpoint failed:', err); }
+  try { db.close(); } catch (err) { log.warn('DB close failed:', err); }
+  db = null;
 }
 
 function recoverOrphanSessions(db: Database.Database): void {
-  const now = Date.now();
-  const fiveMinMs = 5 * 60 * 1000;
-  // Any session with NULL end_time gets closed at start + 5min (capped at now).
-  const result = db
-    .prepare(
-      `UPDATE sessions
-       SET end_time = MIN(start_time + ?, ?)
-       WHERE end_time IS NULL`
-    )
-    .run(fiveMinMs, now);
+  const result = db.prepare(`
+    UPDATE sessions
+    SET end_time = COALESCE(last_heartbeat, start_time)
+    WHERE end_time IS NULL
+  `).run();
   if (result.changes > 0) {
     log.warn(`Recovered ${result.changes} orphan session(s) on startup`);
   }
