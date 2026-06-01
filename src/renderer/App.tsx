@@ -12,14 +12,17 @@ export function App() {
   const [tab, setTab] = useState<Tab>('today');
 
   useEffect(() => {
-    api.isOnboardingNeeded().then(needed => setRoute(needed ? 'onboarding' : 'status'));
+    let mounted = true;
+    api.isOnboardingNeeded().then(needed => {
+      if (mounted) setRoute(needed ? 'onboarding' : 'status');
+    });
     const off = api.onNavigate((r) => {
       if (r === 'settings:projects') setTab('projects');
       else if (r === 'settings:exclusions') setTab('exclusions');
       else if (r === 'settings:schedule') setTab('schedule');
       else setTab('today');
     });
-    return off;
+    return () => { mounted = false; off(); };
   }, [api]);
 
   if (route === 'loading') {
