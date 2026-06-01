@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, webContents } from 'electron';
 import { getDatabase } from '../db/index';
 import { store } from '../store';
 import { assembleBriefPayload } from './assemble-payload';
@@ -19,13 +19,19 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${dd}`;
 }
 
-function broadcast(channel: string, payload: unknown): void {
-  for (const w of BrowserWindow.getAllWindows()) {
-    w.webContents.send(channel, payload);
+function sendToOrigin(senderId: number, channel: string, payload: unknown): void {
+  const wc = webContents.fromId(senderId);
+  if (wc && !wc.isDestroyed()) {
+    wc.send(channel, payload);
+  } else {
+    // Originating renderer is gone; fall back to broadcast to whatever remains
+    for (const w of BrowserWindow.getAllWindows()) {
+      w.webContents.send(channel, payload);
+    }
   }
 }
 
-export async function generateBrief(generationId: string): Promise<DailyBriefDTO> {
+export async function generateBrief(generationId: string, originSenderId: number): Promise<DailyBriefDTO> {
   const db = getDatabase();
   const repo = new BriefRepo(db);
   const now = new Date();
@@ -57,7 +63,7 @@ export async function generateBrief(generationId: string): Promise<DailyBriefDTO
     const result = await streamBriefGeneration(
       userMessage,
       {
-        onTextDelta: delta => broadcast(IPC.BRIEF_STREAM, { kind: 'text_delta', generationId, delta }),
+        onTextDelta: delta => sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'text_delta', generationId, delta }),
       },
       systemPrompt,
     );
@@ -102,7 +108,7 @@ export async function generateBrief(generationId: string): Promise<DailyBriefDTO
       structuredTail: tail,
     };
     repo.upsert(brief);
-    broadcast(IPC.BRIEF_STREAM, { kind: 'done', generationId, brief });
+    sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'done', generationId, brief });
     return brief;
   }
 
@@ -125,7 +131,7 @@ export async function generateBrief(generationId: string): Promise<DailyBriefDTO
     structuredTail: null,
   };
   repo.upsert(fallbackBrief);
-  broadcast(IPC.BRIEF_STREAM, {
+  sendToOrigin(originSenderId, IPC.BRIEF_STREAM, {
     kind: 'error',
     generationId,
     message: `Brief generation could not produce a compliant response after ${MAX_AUTO_REGENS_FOR_VIOLATIONS} attempts. Raw response stored — review and retry manually.`,

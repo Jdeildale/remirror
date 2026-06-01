@@ -300,13 +300,29 @@ export function registerIpc(engine: CaptureEngine): void {
     return briefRepo.listPast(safeLimit);
   });
 
-  ipcMain.handle(IPC.BRIEF_GENERATE, (): { generationId: string } => {
+  // In-flight guard: maps date → generationId for deduplicated concurrent requests
+  const inFlightByDate = new Map<string, string>();
+
+  ipcMain.handle(IPC.BRIEF_GENERATE, (e): { generationId: string } => {
+    const today = isoDateLocal(new Date());
+    // Return existing stream if one is already in progress for today
+    if (inFlightByDate.has(today)) {
+      return { generationId: inFlightByDate.get(today)! };
+    }
+    // Server-side regen cap check
+    const regen = regenStatus(briefRepo.findByDate(today)?.generationCount ?? 0);
+    if (regen.locked) throw new Error('Regeneration limit reached for today');
+
     const generationId = ulid();
-    // Fire-and-forget: streams progress via BRIEF_STREAM broadcast
-    generateBrief(generationId).catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      broadcast(IPC.BRIEF_STREAM, { kind: 'error', generationId, message, retryable: true });
-    });
+    const originSenderId = e.sender.id;
+    inFlightByDate.set(today, generationId);
+    // Fire-and-forget: streams progress via targeted sendToOrigin
+    generateBrief(generationId, originSenderId)
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        broadcast(IPC.BRIEF_STREAM, { kind: 'error', generationId, message, retryable: true });
+      })
+      .finally(() => inFlightByDate.delete(today));
     return { generationId };
   });
 
