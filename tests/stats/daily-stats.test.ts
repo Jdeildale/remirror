@@ -113,6 +113,20 @@ describe('computeDailyStats', () => {
     expect(stats.focusBlocksCount).toBe(0); // 15min effective < 20min threshold
   });
 
+  it('counts meeting sessions as focusedMs', () => {
+    const now = new Date();
+    const start = dayStart(now);
+
+    // Insert a session with kind='meeting' directly (SessionRepo.open defaults to 'work')
+    const id = sessions.open({ startTime: start + HOUR, appName: 'zoom', windowTitle: 'Team Sync', displayId: 0, projectLabel: 'unclassified', confidence: 0 });
+    // Manually set kind to 'meeting' to simulate a meeting session
+    db.prepare("UPDATE sessions SET kind='meeting', end_time=? WHERE id=?").run(start + HOUR + 30 * MIN, id);
+
+    const stats = computeDailyStats(db, now);
+    expect(stats.focusedMs).toBe(30 * MIN);
+    expect(stats.elsewhereMs).toBe(0);
+  });
+
   it('counts transition (sub-4-min) sessions toward switchesCount but ignores them for longestBlock', () => {
     const now = new Date();
     const start = dayStart(now);

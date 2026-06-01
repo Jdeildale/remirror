@@ -57,7 +57,9 @@ export function computeDailyStats(db: Database.Database, now: Date): DailyStats 
       } else {
         focusedMs += effective;
       }
-    } else if (r.kind === 'transition') {
+    } else if (r.kind === 'meeting') {
+      focusedMs += effective; // meetings are intentional time
+    } else if (r.kind === 'transition' || r.kind === 'idle' || r.kind === 'excluded') {
       elsewhereMs += effective;
     }
 
