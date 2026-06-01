@@ -40,6 +40,7 @@ export class CaptureEngine extends EventEmitter {
   private active: ActiveSessionState | null = null;
   private inputGate = new InputGate();
   private tickPending = false;
+  private tickInFlight: Promise<void> | null = null;
   private lastTickAt = 0;
   private periodicTimer: NodeJS.Timeout | null = null;
 
@@ -129,7 +130,24 @@ export class CaptureEngine extends EventEmitter {
     if (now - this.lastTickAt < TICK_DEBOUNCE_MS) return;
     if (this.tickPending) return;
     this.tickPending = true;
-    setTimeout(() => this.tick().catch(err => log.error('tick error', err)), TICK_DEBOUNCE_MS);
+    setTimeout(() => {
+      this.tickInFlight = this.tick().catch(err => log.error('tick error', err));
+      this.tickInFlight.finally(() => { this.tickInFlight = null; });
+    }, TICK_DEBOUNCE_MS);
+  }
+
+  async stopAndDrain(): Promise<void> {
+    // Set stopped first so any future scheduled ticks bail early.
+    this.status = 'stopped';
+    this.stopPeriodicTimer();
+    this.inputGate.stop();
+    // Await any tick currently executing so it can finish its DB writes.
+    if (this.tickInFlight) {
+      try { await this.tickInFlight; } catch { /* already logged in tick */ }
+    }
+    this.closeActive(Date.now());
+    this.emit('status', this.status);
+    log.info('CaptureEngine drained and stopped');
   }
 
   private async tick(): Promise<void> {

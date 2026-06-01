@@ -14,8 +14,12 @@ export function installLifecycleHandlers(engine: CaptureEngine): void {
   powerMonitor.on('resume', () => log.info('System resumed'));
   powerMonitor.on('unlock-screen', () => log.info('Screen unlocked'));
 
-  app.on('before-quit', () => {
-    log.info('App quitting — closing engine');
-    engine.stop();
+  let quitting = false;
+  app.on('before-quit', (e) => {
+    if (quitting) return;
+    quitting = true;
+    e.preventDefault();
+    log.info('App quitting — draining engine');
+    engine.stopAndDrain().finally(() => app.exit(0));
   });
 }
