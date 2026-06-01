@@ -3,7 +3,7 @@ import { useRemirror } from '../hooks/useRemirror';
 import type { AnthropicStatusDTO } from '@shared/types';
 import { Button } from './Button';
 import { Input } from './Input';
-import { MODEL_IDS, MODEL_LABELS, MODEL_COST_ESTIMATE_USD, type ModelKey } from '../../main/anthropic/models';
+import { MODEL_IDS, MODEL_LABELS, MODEL_COST_ESTIMATE_USD, type ModelKey } from '@shared/anthropic-models';
 
 const MODEL_OPTIONS: Array<{ key: ModelKey; id: string; label: string; cost: number }> = (Object.keys(MODEL_IDS) as ModelKey[]).map(k => ({
   key: k, id: MODEL_IDS[k], label: MODEL_LABELS[k], cost: MODEL_COST_ESTIMATE_USD[k],

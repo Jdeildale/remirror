@@ -1,6 +1,6 @@
 import Store from 'electron-store';
 import { DEFAULT_WORK_HOURS, type WorkHoursConfig } from './capture/work-hours';
-import { MODEL_IDS } from './anthropic/models';
+import { MODEL_IDS } from '@shared/anthropic-models';
 
 type Prefs = {
   hotkey: string;

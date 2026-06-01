@@ -27,7 +27,7 @@ import { generateBrief } from './brief/generate';
 import { regenStatus } from './brief/regen-policy';
 import { hasAnthropicKey, writeAnthropicKey, clearAnthropicKey } from './anthropic/key';
 import { testConnection } from './anthropic/client';
-import { MODEL_IDS } from './anthropic/models';
+import { MODEL_IDS } from '@shared/anthropic-models';
 
 // ── IPC input validation helpers ─────────────────────────────────────────────
 function assertString(value: unknown, name: string, maxLen = 10_000): string {
