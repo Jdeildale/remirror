@@ -14,6 +14,10 @@ function isoDate(d: Date): string {
   return `${y}-${m}-${dd}`;
 }
 
+function eventLocalDate(startTimeMs: number): string {
+  return isoDate(new Date(startTimeMs));
+}
+
 export class CalendarSync {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
@@ -55,22 +59,42 @@ export class CalendarSync {
       const calId = store.get('google').calendarId ?? 'primary';
       const today = new Date();
       const events = await fetchEventsForDate(client, calId, today);
-      const dateKey = isoDate(today);
-      // Refresh today's events: delete then re-upsert (handles deleted events)
-      this.repo.deleteByDate(dateKey);
+      const todayKey = isoDate(today);
+
+      // Group fetched events by their actual local start-date.
+      // Late-night or cross-midnight events belong to the day they started,
+      // not the query-window date.
+      const byDate = new Map<string, typeof events>();
       for (const e of events) {
-        this.repo.upsert({
-          id: e.id,
-          date: dateKey,
-          startTimeMs: e.startTimeMs,
-          endTimeMs: e.endTimeMs,
-          title: e.title,
-          description: e.description,
-          attendeesCount: e.attendeesCount,
-          isAllDay: e.isAllDay,
-          declined: e.declined,
-          rawJson: e.rawJson,
-        });
+        const key = eventLocalDate(e.startTimeMs);
+        if (!byDate.has(key)) byDate.set(key, []);
+        byDate.get(key)!.push(e);
+      }
+
+      // Always clear today even if no events came back (handles deletions).
+      const clearedDates = new Set<string>();
+      clearedDates.add(todayKey);
+      this.repo.deleteByDate(todayKey);
+
+      for (const [dateKey, group] of byDate) {
+        if (!clearedDates.has(dateKey)) {
+          this.repo.deleteByDate(dateKey);
+          clearedDates.add(dateKey);
+        }
+        for (const e of group) {
+          this.repo.upsert({
+            id: e.id,
+            date: dateKey,
+            startTimeMs: e.startTimeMs,
+            endTimeMs: e.endTimeMs,
+            title: e.title,
+            description: e.description,
+            attendeesCount: e.attendeesCount,
+            isAllDay: e.isAllDay,
+            declined: e.declined,
+            rawJson: e.rawJson,
+          });
+        }
       }
       this.lastSyncAt = Date.now();
       this.lastError = null;
