@@ -62,7 +62,8 @@ export class CalendarRepo {
         fetched_at=excluded.fetched_at
     `).run(
       e.id, e.date, e.startTimeMs, e.endTimeMs, e.title, e.description,
-      e.attendeesCount, e.isAllDay ? 1 : 0, e.declined ? 1 : 0, e.rawJson, Date.now(),
+      e.attendeesCount, e.isAllDay ? 1 : 0, e.declined ? 1 : 0,
+      e.rawJson || '{}', Date.now(),
     );
   }
 
@@ -81,7 +82,7 @@ export class CalendarRepo {
       isAllDay: r.is_all_day === 1,
       declined: r.declined === 1,
       projectLabel: r.project_label,
-      rawJson: r.raw_json ?? '',
+      rawJson: r.raw_json ?? '{}',
       fetchedAt: r.fetched_at,
     }));
   }
