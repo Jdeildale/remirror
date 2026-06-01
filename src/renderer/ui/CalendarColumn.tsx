@@ -98,8 +98,12 @@ export function CalendarColumn({ workHoursStart, workHoursEnd }: Props) {
     let startMs = todayMs + 7 * 3_600_000;
     let endMs = todayMs + 22 * 3_600_000;
     if (events.length > 0) {
-      const earliest = Math.min(...events.map(e => e.startTimeMs));
-      const latest = Math.max(...events.map(e => e.endTimeMs));
+      let earliest = Infinity;
+      let latest = -Infinity;
+      for (const e of events) {
+        if (e.startTimeMs < earliest) earliest = e.startTimeMs;
+        if (e.endTimeMs > latest) latest = e.endTimeMs;
+      }
       startMs = Math.min(startMs, earliest);
       endMs = Math.max(endMs, latest);
     }

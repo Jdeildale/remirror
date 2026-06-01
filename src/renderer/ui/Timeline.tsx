@@ -53,8 +53,12 @@ export function Timeline({ workHoursStart, workHoursEnd }: Props) {
     let endMs = todayMs + 22 * 3_600_000;
 
     if (sessions.length > 0) {
-      const earliest = Math.min(...sessions.map(s => s.start_time));
-      const latest = Math.max(...sessions.map(s => s.end_time as number));
+      let earliest = Infinity;
+      let latest = -Infinity;
+      for (const s of sessions) {
+        if (s.start_time < earliest) earliest = s.start_time;
+        if ((s.end_time as number) > latest) latest = s.end_time as number;
+      }
       startMs = Math.min(startMs, earliest);
       endMs = Math.max(endMs, latest);
     }
