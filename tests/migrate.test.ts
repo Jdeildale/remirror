@@ -82,4 +82,36 @@ describe('runMigrations', () => {
     ).get();
     expect(row).toBeUndefined();
   });
+
+  it('rejects a migration containing a top-level BEGIN statement', () => {
+    fs.writeFileSync(
+      path.join(migrationsDir, '001_nested_txn.sql'),
+      'BEGIN;\nCREATE TABLE foo (id TEXT);\nCOMMIT;'
+    );
+    expect(() => runMigrations(db, migrationsDir)).toThrow(
+      /must not contain BEGIN\/COMMIT\/ROLLBACK/
+    );
+  });
+
+  it('rejects a migration containing a top-level ROLLBACK statement', () => {
+    fs.writeFileSync(
+      path.join(migrationsDir, '001_rollback.sql'),
+      'ROLLBACK;'
+    );
+    expect(() => runMigrations(db, migrationsDir)).toThrow(
+      /must not contain BEGIN\/COMMIT\/ROLLBACK/
+    );
+  });
+
+  it('allows BEGIN inside a CREATE TRIGGER body', () => {
+    fs.writeFileSync(
+      path.join(migrationsDir, '001_trigger.sql'),
+      `CREATE TABLE t (id TEXT);
+CREATE TRIGGER t_after_insert AFTER INSERT ON t BEGIN
+  SELECT 1;
+END;`
+    );
+    // Should NOT throw — BEGIN here is inside a trigger, not a top-level transaction
+    expect(() => runMigrations(db, migrationsDir)).not.toThrow();
+  });
 });

@@ -24,7 +24,17 @@ export function runMigrations(db: Database.Database, migrationsDir: string): voi
 
   for (const filename of files) {
     if (applied.has(filename)) continue;
-    const sql = fs.readFileSync(path.join(migrationsDir, filename), 'utf-8');
+    const filepath = path.join(migrationsDir, filename);
+    const sql = fs.readFileSync(filepath, 'utf-8');
+    // Reject migrations that contain explicit top-level transaction control statements.
+    // The runner wraps each migration in a transaction already; nested BEGIN/COMMIT
+    // would cause SQLite errors. Note: BEGIN inside CREATE TRIGGER is fine — we only
+    // reject BEGIN/COMMIT/ROLLBACK followed by whitespace, semicolon, or end-of-string.
+    if (/^\s*(BEGIN|COMMIT|ROLLBACK)\s*(TRANSACTION\s*)?(;|$)/im.test(sql)) {
+      throw new Error(
+        `Migration ${filename} must not contain BEGIN/COMMIT/ROLLBACK — the runner wraps each migration in a transaction`
+      );
+    }
     const apply = db.transaction(() => {
       db.exec(sql);
       db.prepare('INSERT INTO _migrations (filename, applied_at) VALUES (?, ?)')
