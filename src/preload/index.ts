@@ -64,6 +64,7 @@ const api: RemirrorAPI = {
   briefListPast: (limit) => ipcRenderer.invoke(IPC.BRIEF_LIST_PAST, limit),
   briefGenerate: () => ipcRenderer.invoke(IPC.BRIEF_GENERATE),
   briefRegenStatus: () => ipcRenderer.invoke(IPC.BRIEF_REGEN_STATUS),
+  briefCancel: (generationId: string) => ipcRenderer.invoke(IPC.BRIEF_CANCEL, generationId),
   onBriefStream: (cb) => {
     const handler = (_e: unknown, evt: unknown) => cb(evt as never);
     ipcRenderer.on(IPC.BRIEF_STREAM, handler);

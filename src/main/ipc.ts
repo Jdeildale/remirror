@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
+import log from './log';
 import { IPC, type TodayStats, type WorkHoursConfigDTO } from '@shared/ipc-contract';
 import type { CaptureEngine } from './capture/engine';
 import { getDatabase } from './db/index';
@@ -331,6 +332,12 @@ export function registerIpc(engine: CaptureEngine): void {
     const brief = briefRepo.findByDate(today);
     const count = brief?.generationCount ?? 0;
     return regenStatus(count);
+  });
+
+  // D.8: BRIEF_CANCEL — stub for now; full AbortController wiring deferred to v0.3.2
+  ipcMain.handle(IPC.BRIEF_CANCEL, (_e, generationId: unknown): void => {
+    const id = typeof generationId === 'string' ? generationId : '(unknown)';
+    log.info(`BRIEF_CANCEL received for ${id} — not yet wired (deferred to v0.3.2)`);
   });
 
   ipcMain.handle(IPC.ANTHROPIC_STATUS, (): AnthropicStatusDTO => ({

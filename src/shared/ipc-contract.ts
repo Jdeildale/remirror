@@ -74,6 +74,7 @@ export const IPC = {
   BRIEF_GENERATE: 'brief:generate',
   BRIEF_STREAM: 'brief:stream',
   BRIEF_REGEN_STATUS: 'brief:regen_status',
+  BRIEF_CANCEL: 'brief:cancel',
 
   // Anthropic
   ANTHROPIC_STATUS: 'anthropic:status',
@@ -138,6 +139,8 @@ export interface RemirrorAPI {
   briefListPast(limit?: number): Promise<DailyBriefDTO[]>;
   briefGenerate(): Promise<{ generationId: string }>;
   briefRegenStatus(): Promise<RegenStatusDTO>;
+  /** Cancel an in-flight brief generation. No-op if generationId is not in-flight. Deferred: v0.3.2 */
+  briefCancel(generationId: string): Promise<void>;
   onBriefStream(cb: (e: BriefStreamEvent) => void): () => void;
   anthropicStatus(): Promise<AnthropicStatusDTO>;
   anthropicSetKey(key: string): Promise<void>;
