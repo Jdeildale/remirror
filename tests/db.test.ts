@@ -30,20 +30,21 @@ describe('openDatabase', () => {
     expect(row).toEqual({ name: 'sessions' });
   });
 
-  it('closes any orphan sessions (NULL end_time) on startup', () => {
+  it('closes any orphan sessions (NULL end_time) on startup using last_heartbeat', () => {
     const dbPath = path.join(tmpDir, 'test.db');
     let db = openDatabase(dbPath);
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    const heartbeatTime = oneHourAgo + 10 * 60 * 1000; // start + 10 min heartbeat
     db.prepare(
-      "INSERT INTO sessions (id, start_time, end_time) VALUES (?, ?, NULL)"
-    ).run('orphan-1', oneHourAgo);
+      "INSERT INTO sessions (id, start_time, end_time, last_heartbeat) VALUES (?, ?, NULL, ?)"
+    ).run('orphan-1', oneHourAgo, heartbeatTime);
     closeDatabase();
 
     db = openDatabase(dbPath);
     const orphan = db.prepare("SELECT end_time FROM sessions WHERE id='orphan-1'").get() as { end_time: number };
     expect(orphan.end_time).not.toBeNull();
-    // Capped at start + 5min
-    expect(orphan.end_time).toBe(oneHourAgo + 5 * 60 * 1000);
+    // Recovered to last_heartbeat (not the old start+5min behavior)
+    expect(orphan.end_time).toBe(heartbeatTime);
   });
 });
 

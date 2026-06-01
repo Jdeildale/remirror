@@ -33,7 +33,7 @@ export function computeDailyStats(db: Database.Database, now: Date): DailyStats 
   const rows = db.prepare(`
     SELECT id, start_time, end_time, paused_ms, project_label, kind
     FROM sessions
-    WHERE start_time >= ? AND start_time <= ? AND end_time IS NOT NULL
+    WHERE end_time >= ? AND start_time <= ? AND end_time IS NOT NULL
   `).all(startMs, endMs) as Array<{
     id: string;
     start_time: number;
@@ -49,7 +49,13 @@ export function computeDailyStats(db: Database.Database, now: Date): DailyStats 
   let longest: DailyStats['longestBlock'] = null;
 
   for (const r of rows) {
-    const effective = Math.max(0, r.end_time - r.start_time - r.paused_ms);
+    // Clip session to the day window (handles cross-midnight sessions)
+    const clippedStart = Math.max(r.start_time, startMs);
+    const clippedEnd = Math.min(r.end_time, endMs);
+    const wallDur = Math.max(0, r.end_time - r.start_time);
+    const overlap = Math.max(0, clippedEnd - clippedStart);
+    const pausedClipped = wallDur > 0 ? r.paused_ms * (overlap / wallDur) : 0;
+    const effective = Math.max(0, overlap - pausedClipped);
 
     if (r.kind === 'work') {
       if (r.project_label === 'unclassified' || r.project_label === null) {
@@ -111,7 +117,7 @@ export function computeProjectBreakdown(db: Database.Database, now: Date): Proje
   const rows = db.prepare(`
     SELECT project_label, start_time, end_time, paused_ms, kind
     FROM sessions
-    WHERE start_time >= ? AND start_time <= ? AND end_time IS NOT NULL AND kind = 'work'
+    WHERE end_time >= ? AND start_time <= ? AND end_time IS NOT NULL AND kind = 'work'
     ORDER BY start_time ASC
   `).all(startMs, endMs) as Array<{
     project_label: string | null;
@@ -126,7 +132,13 @@ export function computeProjectBreakdown(db: Database.Database, now: Date): Proje
 
   for (const r of rows) {
     const label = r.project_label ?? 'unclassified';
-    const effective = Math.max(0, r.end_time - r.start_time - r.paused_ms);
+    // Clip to day window (handles cross-midnight sessions)
+    const clippedStart = Math.max(r.start_time, startMs);
+    const clippedEnd = Math.min(r.end_time, endMs);
+    const wallDur = Math.max(0, r.end_time - r.start_time);
+    const overlap = Math.max(0, clippedEnd - clippedStart);
+    const pausedClipped = wallDur > 0 ? r.paused_ms * (overlap / wallDur) : 0;
+    const effective = Math.max(0, overlap - pausedClipped);
     const entry = byProject.get(label) ?? { totalMs: 0, returnCount: 0 };
     entry.totalMs += effective;
     if (prevLabel !== label) {

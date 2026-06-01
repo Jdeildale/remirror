@@ -145,6 +145,27 @@ describe('computeDailyStats', () => {
     expect(stats.longestBlock!.id).toBe(idWork);     // 25-min work wins, not 2-min transition
     expect(stats.longestBlock!.durationMs).toBe(25 * MIN);
   });
+
+  it('clips cross-midnight session to current day proportionally', () => {
+    // Session starts 23:30 yesterday and ends 01:30 today = 120 min wall-clock
+    // "Today" starts at midnight. The overlap is 90 min (00:00 to 01:30).
+    // paused_ms = 0, so effective for today = 90 min.
+    const now = new Date();
+    const todayMidnight = new Date(now);
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+
+    const sessionStart = todayMidnightMs - 30 * MIN; // 23:30 yesterday
+    const sessionEnd = todayMidnightMs + 90 * MIN;   // 01:30 today
+
+    const id = sessions.open({ startTime: sessionStart, appName: 'code', windowTitle: 'main', displayId: 0, projectLabel: 'Oracle', confidence: 1 });
+    // Manually set end_time since sessions.close() is gated by start/end within same call
+    db.prepare('UPDATE sessions SET end_time=?, kind=? WHERE id=?').run(sessionEnd, 'work', id);
+
+    const stats = computeDailyStats(db, now);
+    // Effective for today = 90 min (overlap from midnight to 01:30)
+    expect(stats.focusedMs).toBe(90 * MIN);
+  });
 });
 
 describe('computeProjectBreakdown', () => {
