@@ -32,7 +32,12 @@ const api: RemirrorAPI = {
   completeOnboarding: () => ipcRenderer.invoke(IPC.ONBOARDING_COMPLETE),
 
   onNavigate: (cb) => {
-    const handler = (_e: unknown, route: any) => cb(route);
+    const VALID_ROUTES = new Set(['status', 'settings:projects', 'settings:exclusions', 'settings:schedule', 'brief']);
+    const handler = (_e: unknown, route: unknown) => {
+      if (typeof route === 'string' && VALID_ROUTES.has(route)) {
+        cb(route as 'status' | 'settings:projects' | 'settings:exclusions' | 'settings:schedule');
+      }
+    };
     ipcRenderer.on(IPC.NAVIGATE, handler);
     return () => ipcRenderer.off(IPC.NAVIGATE, handler);
   },
