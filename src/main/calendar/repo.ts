@@ -31,6 +31,20 @@ export interface CalendarEventInput {
 export class CalendarRepo {
   constructor(private db: Database.Database) {}
 
+  /**
+   * Insert or update a calendar event row.
+   *
+   * **Sticky project_label:** The `project_label` column is intentionally
+   * omitted from the ON CONFLICT SET clause. When the user manually maps an
+   * event to a project via the UI, that mapping survives re-fetches from
+   * Google Calendar — even if the event title changes slightly. This is the
+   * desired "sticky" UX: user intent is preserved across syncs.
+   *
+   * If a future version wants to clear the label when the event title changes
+   * significantly (e.g., Levenshtein distance > 20%), that logic belongs here,
+   * comparing `excluded.title` to the existing row's `title` before deciding
+   * whether to reset `project_label`.
+   */
   upsert(e: CalendarEventInput): void {
     this.db.prepare(`
       INSERT INTO calendar_events (id, date, start_time, end_time, title, description, attendees_count, is_all_day, declined, source, raw_json, fetched_at)
