@@ -74,7 +74,8 @@ export class CalendarSync {
       }
       this.lastSyncAt = Date.now();
       this.lastError = null;
-      store.set('google.syncedAt', this.lastSyncAt);
+      const g = store.get('google');
+      store.set('google', { ...g, syncedAt: this.lastSyncAt });
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
