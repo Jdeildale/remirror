@@ -40,7 +40,7 @@ function renderInline(text: string): React.ReactNode[] {
       remaining = remaining.slice(code[0].length);
       continue;
     }
-    const italic = remaining.match(/^\*(.+?)\*/);
+    const italic = remaining.match(/^\*(\S(?:.*?\S)?)\*/);
     if (italic) {
       tokens.push({ type: 'italic', content: italic[1] });
       remaining = remaining.slice(italic[0].length);
