@@ -3,7 +3,7 @@ import { getDatabase } from '../db/index';
 import { store } from '../store';
 import { assembleBriefPayload } from './assemble-payload';
 import { streamBriefGeneration } from '../anthropic/stream';
-import type { StreamMessage } from '../anthropic/stream';
+import type { StreamMessage, AbortableStream } from '../anthropic/stream';
 import { SYSTEM_PROMPT_V1, bannedVocabRegenPrompt, parseFailRegenPrompt } from './prompts/v1';
 import { parseBriefMarkdown } from './parse-markdown';
 import { parseStructuredTail } from './parse-tail';
@@ -11,7 +11,10 @@ import { gateBrief, MAX_AUTO_REGENS_FOR_VIOLATIONS } from './gate';
 import { BriefRepo } from './repo';
 import { IPC } from '@shared/ipc-contract';
 import type { DailyBriefDTO } from '@shared/types';
+import { scanForBannedVocabulary } from '../copy/banned-vocab';
 import log from '../log';
+
+const PENDING_WINDOW = 50; // chars held back before painting to renderer (D.3)
 
 function isoDate(d: Date): string {
   const y = d.getFullYear();
@@ -30,6 +33,65 @@ function sendToOrigin(senderId: number, channel: string, payload: unknown): void
       w.webContents.send(channel, payload);
     }
   }
+}
+
+/**
+ * D.3: Creates a pending-delta buffer that holds back the last PENDING_WINDOW chars
+ * from the renderer. If a banned word appears in the tail of the accumulated text,
+ * the pending buffer is dropped (never emitted) and onBannedDetected() is called
+ * so the caller can abort the stream and restart without flicker.
+ */
+function makePendingBufferCallbacks(
+  originSenderId: number,
+  generationId: string,
+  onBannedDetected: () => void,
+): {
+  onTextDelta: (delta: string) => void;
+  flush: () => void;
+  drop: () => void;
+  fullBuffer: () => string;
+} {
+  let pending = '';
+  let full = '';
+  let banned = false;
+
+  return {
+    onTextDelta(delta: string) {
+      if (banned) return; // already detected — ignore further deltas
+      full += delta;
+      pending += delta;
+
+      // Scan the tail of the full buffer for banned words (covers word boundaries)
+      const tailToScan = full.slice(-80);
+      const hits = scanForBannedVocabulary(tailToScan);
+      if (hits.length > 0) {
+        banned = true;
+        // Drop pending — never emit it
+        pending = '';
+        onBannedDetected();
+        return;
+      }
+
+      // Flush older portion of pending to renderer; keep last PENDING_WINDOW chars back
+      if (pending.length > PENDING_WINDOW) {
+        const toEmit = pending.slice(0, pending.length - PENDING_WINDOW);
+        pending = pending.slice(-PENDING_WINDOW);
+        sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'text_delta', generationId, delta: toEmit });
+      }
+    },
+    flush() {
+      if (pending.length > 0) {
+        sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'text_delta', generationId, delta: pending });
+        pending = '';
+      }
+    },
+    drop() {
+      pending = '';
+    },
+    fullBuffer() {
+      return full;
+    },
+  };
 }
 
 export async function generateBrief(generationId: string, originSenderId: number): Promise<DailyBriefDTO> {
@@ -73,13 +135,50 @@ export async function generateBrief(generationId: string, originSenderId: number
 
     attempt += 1;
 
+    // D.3: pending buffer — holds last PENDING_WINDOW chars back from renderer until confirmed clean
+    let bannedDetected = false;
+    let streamRef: AbortableStream | undefined;
+
+    const buf = makePendingBufferCallbacks(
+      originSenderId,
+      generationId,
+      () => {
+        bannedDetected = true;
+        if (streamRef) {
+          try { streamRef.abort(); } catch { /* ignore */ }
+        }
+      },
+    );
+
     const result = await streamBriefGeneration(
       messages,
-      {
-        onTextDelta: delta => sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'text_delta', generationId, delta }),
-      },
+      { onTextDelta: buf.onTextDelta },
       SYSTEM_PROMPT_V1,
-    );
+    ).catch((err: unknown) => {
+      // Abort throws — treat it as an expected interruption if bannedDetected
+      if (bannedDetected) return null;
+      throw err;
+    });
+
+    if (bannedDetected || result === null) {
+      // Drop any remaining pending buffer — never shown to renderer
+      buf.drop();
+      // Signal renderer to clear streaming UI silently (no error shown)
+      sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'reset_for_regen', generationId });
+      rawMarkdown = buf.fullBuffer();
+      // Build regen prompt from detected words
+      const gate = gateBrief(rawMarkdown);
+      const violatedWords = gate.violatedWords.length > 0 ? gate.violatedWords : ['[detected mid-stream]'];
+      log.warn(`Brief attempt ${attempt}: banned vocab detected mid-stream: ${violatedWords.join(', ')}. Regenerating.`);
+      messages.push({ role: 'assistant', content: rawMarkdown });
+      messages.push({ role: 'user', content: bannedVocabRegenPrompt(violatedWords) });
+      continue;
+    }
+
+    // Stream reference (for abort on future iterations if needed)
+    streamRef = result.stream;
+    // Flush remaining pending buffer on clean finish
+    buf.flush();
     rawMarkdown = result.rawMarkdown;
     // D.6: accumulate, not overwrite
     totalInputTokens += result.inputTokens;
@@ -87,7 +186,7 @@ export async function generateBrief(generationId: string, originSenderId: number
     model = result.model;
     promptVersion = result.promptVersion;
 
-    // Gate: banned vocab
+    // Gate: banned vocab (catches anything that slipped past the mid-stream scanner)
     const gate = gateBrief(rawMarkdown);
     if (!gate.ok) {
       log.warn(`Brief attempt ${attempt}: banned vocab violations: ${gate.violatedWords.join(', ')}. Regenerating.`);

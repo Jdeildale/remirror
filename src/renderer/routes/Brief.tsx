@@ -31,6 +31,9 @@ export function Brief({ onNavigateToSettings }: Props) {
       if (activeGenId.current && e.generationId !== activeGenId.current) return;
       if (e.kind === 'text_delta') {
         setStreamingMarkdown(prev => (prev ?? '') + e.delta);
+      } else if (e.kind === 'reset_for_regen') {
+        // Silently clear streaming state — regen is starting, no error shown
+        setStreamingMarkdown('');
       } else if (e.kind === 'done') {
         activeGenId.current = null;
         setStreamingMarkdown(null);

@@ -117,4 +117,5 @@ export type BriefStreamEvent =
   | { kind: 'text_delta'; generationId: string; delta: string }
   | { kind: 'section_complete'; generationId: string; section: 'headline' | 'story' | 'what_held' | 'what_fragmented' | 'tomorrow_first_90' }
   | { kind: 'done'; generationId: string; brief: DailyBriefDTO }
-  | { kind: 'error'; generationId: string; message: string; retryable: boolean };
+  | { kind: 'error'; generationId: string; message: string; retryable: boolean }
+  | { kind: 'reset_for_regen'; generationId: string };
