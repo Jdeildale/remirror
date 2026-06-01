@@ -10,9 +10,10 @@ import { Logo } from '../ui/Logo';
 import { StoryColumn } from '../ui/StoryColumn';
 import { Timeline } from '../ui/Timeline';
 import { CalendarColumn } from '../ui/CalendarColumn';
+import { Brief } from './Brief';
 import clsx from 'clsx';
 
-type Tab = 'today' | 'projects' | 'exclusions' | 'schedule';
+type Tab = 'today' | 'brief' | 'projects' | 'exclusions' | 'schedule';
 
 interface Props {
   tab: Tab;
@@ -66,6 +67,7 @@ export function Status({ tab, onTabChange }: Props) {
         </div>
         <div className="flex gap-4 text-xs">
           {tabBtn('today', 'Today')}
+          {tabBtn('brief', 'Brief')}
           {tabBtn('projects', 'Projects')}
           {tabBtn('exclusions', 'Exclusions')}
           {tabBtn('schedule', 'Schedule')}
@@ -84,6 +86,10 @@ export function Status({ tab, onTabChange }: Props) {
           <Timeline workHoursStart={workHours?.start} workHoursEnd={workHours?.end} />
           <CalendarColumn workHoursStart={workHours?.start} workHoursEnd={workHours?.end} />
         </div>
+      )}
+
+      {tab === 'brief' && (
+        <Brief onNavigateToSettings={() => onTabChange('schedule')} />
       )}
 
       {tab === 'projects' && <div className="p-6 max-w-4xl"><ProjectEditor /></div>}

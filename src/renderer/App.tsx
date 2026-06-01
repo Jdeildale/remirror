@@ -4,7 +4,7 @@ import { Status } from './routes/Status';
 import { useRemirror } from './hooks/useRemirror';
 
 type Route = 'loading' | 'onboarding' | 'status';
-type Tab = 'today' | 'projects' | 'exclusions' | 'schedule';
+type Tab = 'today' | 'brief' | 'projects' | 'exclusions' | 'schedule';
 
 export function App() {
   const api = useRemirror();
