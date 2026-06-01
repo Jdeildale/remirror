@@ -76,4 +76,16 @@ describe('generateTruthHeadline', () => {
     const headline = generateTruthHeadline(shape);
     expect(headline).toContain('0 hours 6 minutes');
   });
+
+  it('does not crash when focusedMs is NaN — outputs 0 hours 0 minutes', () => {
+    const shape: DayShape = { focusedMs: NaN, elsewhereMs: 0, longest: null };
+    const headline = generateTruthHeadline(shape);
+    expect(headline).toContain('0 hours 0 minutes of focused work');
+  });
+
+  it('does not crash when elsewhereMs is Infinity — outputs 0 hours 0 minutes', () => {
+    const shape: DayShape = { focusedMs: 0, elsewhereMs: Infinity, longest: null };
+    const headline = generateTruthHeadline(shape);
+    expect(headline).toContain('0 hours 0 minutes elsewhere');
+  });
 });

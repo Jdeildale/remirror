@@ -68,4 +68,30 @@ describe('generateForwardNudge', () => {
       expect(result!.toLowerCase()).not.toContain(word);
     }
   });
+
+  it('does not crash when goalProgressMs is NaN — formats as 0m', () => {
+    const ctx: NudgeContext = {
+      goal: { text: 'Ship X', projectLabel: 'X' },
+      goalProgressMs: NaN,
+      goalTargetMs: 8 * 3600_000,
+      topProjectToday: null,
+      anySessionsToday: true,
+    };
+    const result = generateForwardNudge(ctx);
+    expect(result).not.toBeNull();
+    expect(result!).toContain('0m');
+  });
+
+  it('does not crash when goalProgressMs is Infinity — formats as 0m', () => {
+    const ctx: NudgeContext = {
+      goal: { text: 'Ship X', projectLabel: 'X' },
+      goalProgressMs: Infinity,
+      goalTargetMs: 8 * 3600_000,
+      topProjectToday: null,
+      anySessionsToday: true,
+    };
+    const result = generateForwardNudge(ctx);
+    expect(result).not.toBeNull();
+    expect(result!).toContain('0m');
+  });
 });

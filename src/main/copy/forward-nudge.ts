@@ -12,6 +12,7 @@ export interface NudgeContext {
 }
 
 function fmtHours(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
   const totalMin = Math.floor(ms / 60_000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
