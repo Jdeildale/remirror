@@ -28,7 +28,7 @@ export function Brief({ onNavigateToSettings }: Props) {
   useEffect(() => {
     refresh();
     const off = api.onBriefStream((e: BriefStreamEvent) => {
-      if (activeGenId.current && e.generationId !== activeGenId.current) return;
+      if (e.generationId !== activeGenId.current) return;
       if (e.kind === 'text_delta') {
         setStreamingMarkdown(prev => (prev ?? '') + e.delta);
       } else if (e.kind === 'reset_for_regen') {
@@ -52,11 +52,13 @@ export function Brief({ onNavigateToSettings }: Props) {
 
   async function handleGenerate() {
     setError(null); setBusy(true); setStreamingMarkdown('');
+    activeGenId.current = '__pending__'; // block all stream events while awaiting new gen
     try {
       const { generationId } = await api.briefGenerate();
       activeGenId.current = generationId;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      activeGenId.current = null;
       setStreamingMarkdown(null); setBusy(false);
       if (msg.includes('ANTHROPIC_API_KEY_MISSING')) {
         setError('Set up your Anthropic API key in Settings.');
