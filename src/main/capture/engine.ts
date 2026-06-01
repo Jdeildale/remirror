@@ -48,6 +48,10 @@ export class CaptureEngine extends EventEmitter {
     super();
     this.repo = new SessionRepo(db);
     this.inputGate.on('input', () => this.scheduleTick());
+    this.inputGate.on('error', (err) => {
+      log.error('InputGate error — capture running in degraded mode (no input events):', err);
+      this.emit('degraded', true);
+    });
   }
 
   reloadProjects(): void {

@@ -34,6 +34,7 @@ export class InputGate extends EventEmitter {
       log.info('InputGate started');
     } catch (err) {
       log.error('InputGate failed to start:', err);
+      this.emit('error', err);
     }
   }
 
