@@ -2,25 +2,10 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BANNED_VOCABULARY } from '@main/copy/banned-vocab';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rendererDir = path.resolve(__dirname, '../../src/renderer');
-
-const BANNED = [
-  'should',
-  'failed',
-  'missed',
-  'wasted',
-  'drifted',
-  'off-track',
-  'skipped',
-  'slipping',
-  'broken streak',
-  'lost focus',
-  'gave up',
-  'fell off',
-  'neglected',
-];
 
 function walk(dir: string, exts: string[]): string[] {
   const out: string[] = [];
@@ -47,8 +32,9 @@ describe('banned vocabulary in user-facing copy', () => {
         const trimmed = line.trim();
         if (trimmed.startsWith('//') || trimmed.startsWith('import') || trimmed.startsWith('*')) return;
         const lower = line.toLowerCase();
-        for (const w of BANNED) {
-          const re = new RegExp(`\\b${w.replace(/[-]/g, '[-]')}\\b`, 'i');
+        for (const w of BANNED_VOCABULARY) {
+          const escaped = w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const re = new RegExp(`\\b${escaped}\\b`, 'i');
           if (re.test(lower)) {
             violations.push({ file: path.relative(rendererDir, file), word: w, line: i + 1, text: line.trim() });
           }
