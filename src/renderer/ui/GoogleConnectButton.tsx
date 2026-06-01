@@ -13,9 +13,13 @@ export function GoogleConnectButton() {
   }
 
   useEffect(() => {
-    refresh();
+    let mounted = true;
+    (async () => {
+      const s = await api.googleStatus();
+      if (mounted) setStatus(s);
+    })();
     const off = api.onGoogleStatusChanged(setStatus);
-    return off;
+    return () => { mounted = false; off(); };
   }, [api]);
 
   async function handleConnect() {

@@ -11,17 +11,20 @@ export function GoalEditor() {
   const [draftProject, setDraftProject] = useState<string>('');
   const [projects, setProjects] = useState<Project[]>([]);
 
-  async function refresh() {
-    const [g, p] = await Promise.all([api.getGoal(), api.listProjects()]);
-    setGoal(g);
-    setProjects(p);
-    if (g) {
-      setDraftText(g.text);
-      setDraftProject(g.projectLabel ?? '');
-    }
-  }
-
-  useEffect(() => { refresh(); }, [api]);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const [g, p] = await Promise.all([api.getGoal(), api.listProjects()]);
+      if (!mounted) return;
+      setGoal(g);
+      setProjects(p);
+      if (g) {
+        setDraftText(g.text);
+        setDraftProject(g.projectLabel ?? '');
+      }
+    })();
+    return () => { mounted = false; };
+  }, [api]);
 
   async function save() {
     if (!draftText.trim()) return;

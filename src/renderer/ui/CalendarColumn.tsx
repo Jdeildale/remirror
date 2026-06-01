@@ -72,18 +72,23 @@ export function CalendarColumn({ workHoursStart, workHoursEnd }: Props) {
   const [events, setEvents] = useState<CalendarEventDTO[]>([]);
   const [google, setGoogle] = useState<GoogleStatusDTO | null>(null);
 
-  async function refresh() {
+  async function refresh(alive?: () => boolean) {
     const [ev, gs] = await Promise.all([api.calendarListToday(), api.googleStatus()]);
+    if (alive && !alive()) return;
     setEvents(ev);
     setGoogle(gs);
   }
 
   useEffect(() => {
-    refresh();
-    const offGoogle = api.onGoogleStatusChanged(refresh);
-    const offSessions = api.onSessionsChanged(refresh);
-    const interval = setInterval(refresh, 5000);
-    return () => { offGoogle(); offSessions(); clearInterval(interval); };
+    let mounted = true;
+    const alive = () => mounted;
+    refresh(alive);
+    const offGoogle = api.onGoogleStatusChanged(() => refresh(alive));
+    const offSessions = api.onSessionsChanged(() => refresh(alive));
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh(alive);
+    }, 5000);
+    return () => { mounted = false; offGoogle(); offSessions(); clearInterval(interval); };
   }, [api]);
 
   const { timeRangeStart, timeRangeEnd, pixelsPerMs, totalHeight } = useMemo(() => {

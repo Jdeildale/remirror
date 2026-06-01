@@ -18,7 +18,14 @@ export function AnthropicApiCard() {
 
   async function refresh() { setStatus(await api.anthropicStatus()); }
 
-  useEffect(() => { refresh(); }, [api]);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const s = await api.anthropicStatus();
+      if (mounted) setStatus(s);
+    })();
+    return () => { mounted = false; };
+  }, [api]);
 
   async function saveKey() {
     if (!draftKey.trim()) return;

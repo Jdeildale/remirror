@@ -43,13 +43,14 @@ export function StoryColumn() {
   const [events, setEvents] = useState<CalendarEventDTO[]>([]);
   const [goal, setGoal] = useState<WeeklyGoalDTO | null>(null);
 
-  async function refresh() {
+  async function refresh(alive?: () => boolean) {
     const [s, bd, ev, g] = await Promise.all([
       api.todayStatsV2(),
       api.projectBreakdown(),
       api.calendarListToday(),
       api.getGoal(),
     ]);
+    if (alive && !alive()) return;
     setStats(s);
     setBreakdown(bd);
     setEvents(ev);
@@ -57,10 +58,14 @@ export function StoryColumn() {
   }
 
   useEffect(() => {
-    refresh();
-    const off = api.onSessionsChanged(refresh);
-    const interval = setInterval(refresh, 5000);
-    return () => { off(); clearInterval(interval); };
+    let mounted = true;
+    const alive = () => mounted;
+    refresh(alive);
+    const off = api.onSessionsChanged(() => refresh(alive));
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh(alive);
+    }, 5000);
+    return () => { mounted = false; off(); clearInterval(interval); };
   }, [api]);
 
   if (!stats) return <div className="text-muted p-6">Loading…</div>;

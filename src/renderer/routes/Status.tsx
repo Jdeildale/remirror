@@ -32,17 +32,20 @@ export function Status({ tab, onTabChange }: Props) {
   const [status, setStatus] = useState<EngineStatus>('stopped');
   const [workHours, setWorkHours] = useState<WorkHoursConfigDTO | null>(null);
 
-  async function refreshStatus() {
-    const [st, wh] = await Promise.all([api.getEngineStatus(), api.getWorkHours()]);
-    setStatus(st);
-    setWorkHours(wh);
-  }
-
   useEffect(() => {
-    refreshStatus();
+    let mounted = true;
+    async function load() {
+      const [st, wh] = await Promise.all([api.getEngineStatus(), api.getWorkHours()]);
+      if (!mounted) return;
+      setStatus(st);
+      setWorkHours(wh);
+    }
+    load();
     const off = api.onEngineStatusChanged(setStatus);
-    const interval = setInterval(refreshStatus, 10_000);
-    return () => { off(); clearInterval(interval); };
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, 10_000);
+    return () => { mounted = false; off(); clearInterval(interval); };
   }, [api]);
 
   const tabBtn = (id: Tab, label: string) => (

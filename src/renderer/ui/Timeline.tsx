@@ -20,11 +20,12 @@ export function Timeline({ workHoursStart, workHoursEnd }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState<DailyStatsDTO | null>(null);
 
-  async function refresh() {
+  async function refresh(alive?: () => boolean) {
     const [s, st] = await Promise.all([
       api.recentSessions(500),
       api.todayStatsV2(),
     ]);
+    if (alive && !alive()) return;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayMs = todayStart.getTime();
@@ -33,10 +34,14 @@ export function Timeline({ workHoursStart, workHoursEnd }: Props) {
   }
 
   useEffect(() => {
-    refresh();
-    const off = api.onSessionsChanged(refresh);
-    const interval = setInterval(refresh, 5000);
-    return () => { off(); clearInterval(interval); };
+    let mounted = true;
+    const alive = () => mounted;
+    refresh(alive);
+    const off = api.onSessionsChanged(() => refresh(alive));
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh(alive);
+    }, 5000);
+    return () => { mounted = false; off(); clearInterval(interval); };
   }, [api]);
 
   const { timeRangeStart, timeRangeEnd, pixelsPerMs, totalHeight } = useMemo(() => {

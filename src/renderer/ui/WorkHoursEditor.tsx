@@ -12,7 +12,12 @@ export function WorkHoursEditor() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api.getWorkHours().then(setCfg);
+    let mounted = true;
+    (async () => {
+      const c = await api.getWorkHours();
+      if (mounted) setCfg(c);
+    })();
+    return () => { mounted = false; };
   }, [api]);
 
   async function save(next: WorkHoursConfigDTO) {

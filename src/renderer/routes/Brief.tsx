@@ -18,15 +18,18 @@ export function Brief({ onNavigateToSettings }: Props) {
   const [busy, setBusy] = useState(false);
   const activeGenId = useRef<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (alive?: () => boolean) => {
     const [t, p, rs, as] = await Promise.all([
       api.briefToday(), api.briefListPast(30), api.briefRegenStatus(), api.anthropicStatus(),
     ]);
+    if (alive && !alive()) return;
     setToday(t); setPast(p); setRegenStatus(rs); setAnthropicStatus(as);
   }, [api]);
 
   useEffect(() => {
-    refresh();
+    let mounted = true;
+    const alive = () => mounted;
+    refresh(alive);
     const off = api.onBriefStream((e: BriefStreamEvent) => {
       if (e.generationId !== activeGenId.current) return;
       if (e.kind === 'text_delta') {
@@ -39,7 +42,7 @@ export function Brief({ onNavigateToSettings }: Props) {
         setStreamingMarkdown(null);
         setError(null);
         setBusy(false);
-        refresh();
+        refresh(alive);
       } else if (e.kind === 'error') {
         activeGenId.current = null;
         setStreamingMarkdown(null);
@@ -47,7 +50,7 @@ export function Brief({ onNavigateToSettings }: Props) {
         setBusy(false);
       }
     });
-    return off;
+    return () => { mounted = false; off(); };
   }, [api, refresh]);
 
   async function handleGenerate() {
