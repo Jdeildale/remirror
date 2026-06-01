@@ -24,6 +24,7 @@ type Prefs = {
 };
 
 export const store = new Store<Prefs>({
+  clearInvalidConfig: true,
   defaults: {
     hotkey: 'Alt+Shift+R',
     licenseKey: undefined,
