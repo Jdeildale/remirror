@@ -75,6 +75,14 @@ const api: RemirrorAPI = {
   anthropicSetModel: (modelId) => ipcRenderer.invoke(IPC.ANTHROPIC_SET_MODEL, modelId),
   anthropicTest: () => ipcRenderer.invoke(IPC.ANTHROPIC_TEST),
   anthropicClearKey: () => ipcRenderer.invoke(IPC.ANTHROPIC_CLEAR_KEY),
+
+  onUpdateStatus: (cb) => {
+    const handler = (_e: unknown, evt: unknown) => cb(evt as never);
+    ipcRenderer.on(IPC.UPDATE_STATUS, handler);
+    return () => ipcRenderer.off(IPC.UPDATE_STATUS, handler);
+  },
+  updateCheckNow: () => ipcRenderer.invoke(IPC.UPDATE_CHECK_NOW),
+  updateQuitAndInstall: () => ipcRenderer.invoke(IPC.UPDATE_QUIT_AND_INSTALL),
 };
 
 contextBridge.exposeInMainWorld('remirror', api);

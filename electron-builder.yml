@@ -18,3 +18,12 @@ nsis:
   allowElevation: true
   allowToChangeInstallationDirectory: true
   artifactName: ${productName}-Setup-${version}.${ext}
+
+# Auto-update host. electron-updater reads `latest.yml` from this URL on each
+# app launch and downloads new installers when version increases.
+# To publish a new release: `npm run release:win` (see package.json scripts).
+publish:
+  provider: github
+  owner: thrivingmindmarketing-tmm
+  repo: remirror
+  releaseType: release

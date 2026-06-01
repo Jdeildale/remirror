@@ -11,3 +11,6 @@ Thumbs.db
 .vitest/
 coverage/
 .claude/
+
+# Brainstorming visual companion sessions
+.superpowers/

@@ -5,6 +5,10 @@
   "main": "out/main/index.js",
   "type": "module",
   "author": "Remirror",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thrivingmindmarketing-tmm/remirror.git"
+  },
   "private": true,
   "license": "UNLICENSED",
   "engines": {
@@ -14,6 +18,7 @@
     "dev": "npm run rebuild:electron && electron-vite dev",
     "build": "electron-vite build",
     "build:win": "npm run rebuild:electron && npm run build && electron-builder --win --config electron-builder.yml",
+    "release:win": "npm run rebuild:electron && npm run build && electron-builder --win --config electron-builder.yml --publish always",
     "pretest": "npm run rebuild:node",
     "test": "node scripts/run-tests.mjs",
     "test:watch": "npm run rebuild:node && vitest",
@@ -31,6 +36,7 @@
     "dotenv": "^17.4.2",
     "electron-log": "^5.2.0",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.3",
     "get-windows": "^9.2.0",
     "googleapis": "^172.0.0",
     "react": "^18.3.1",

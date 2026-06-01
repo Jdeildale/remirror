@@ -13,6 +13,7 @@ import { registerIpc } from './ipc';
 import { CalendarSync } from './calendar/sync';
 import { hasStoredAuth } from './google/auth';
 import { dailyStatsCache } from './stats/cache';
+import { setupAutoUpdater } from './updater';
 import { IPC } from '@shared/ipc-contract';
 
 declare global {
@@ -88,6 +89,9 @@ app.whenReady().then(async () => {
     } else {
       engine.start();
     }
+
+    // Auto-update: no-op in dev (no metadata file in out/); checks GitHub Releases in production
+    setupAutoUpdater();
 
     log.info(`${BRAND.appName} ready`);
   } catch (err) {

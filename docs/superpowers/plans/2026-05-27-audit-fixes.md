@@ -193,7 +193,7 @@ Add `lastSyncAttemptAt` timestamp. In `syncNow`, if `Date.now() - lastSyncAttemp
 **File:** `src/main/calendar/sync.ts`, `src/main/google/auth.ts`
 In `syncNow`'s catch, sniff `err.message`/`err.code` for `invalid_grant` or `401`. On match, call `disconnectGoogle()` and broadcast `GOOGLE_STATUS_CHANGED` with `connected: false, lastError: 'Google access was revoked. Please reconnect.'`. The renderer's GoogleConnectButton already surfaces lastError — verify the copy is non-banned.
 
-**Mercer consult:** the reconnect copy ("Google access was revoked. Please reconnect.") needs to land without sounding accusatory. Confirm with Mercer.
+**Mercer-locked copy:** `"Google access for Remirror was revoked. Reconnect to resume calendar sync."`
 
 ### C.5 Rate-limit backoff for 429s (I2.8)
 **File:** `src/main/calendar/sync.ts`
@@ -241,7 +241,7 @@ Change the regen path: instead of mutating systemPrompt, append `{role: 'assista
 **Files:** `src/main/brief/generate.ts`, `src/main/anthropic/stream.ts`, `src/main/brief/gate.ts`
 Add an `onTextDelta` interceptor that maintains a sliding-window scanner over the last ~50 chars of accumulated output. On detecting a banned word, abort the stream (`stream.controller.abort()`) and begin auto-regen WITHOUT having emitted that delta. This prevents the user from seeing banned vocab even briefly.
 
-**Mercer consult:** confirm this is the right behavior. Alternative is buffer-and-flush — delay deltas by ~50 chars. Mercer's call on UX tradeoff: instant streaming with possible reset flicker vs. small delay with guaranteed clean output. Recommend the abort approach.
+**Mercer-locked:** Option A (abort) with "don't flicker" — hold the latest output buffer behind ONE render frame; if a banned word arrives, drop the buffer before paint so the user sees a brief pause, not a visible reset. The buffer-and-flush alternative reads as "handling" — ADHD readers clock unnatural cadence and start hunting for what's being filtered.
 
 ### D.4 safeStorage encryption-state marker (B3.4 — covered in A.9)
 See Batch A.

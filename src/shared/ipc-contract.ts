@@ -82,7 +82,17 @@ export const IPC = {
   ANTHROPIC_SET_MODEL: 'anthropic:set_model',
   ANTHROPIC_TEST: 'anthropic:test',
   ANTHROPIC_CLEAR_KEY: 'anthropic:clear_key',
+
+  // Updates
+  UPDATE_STATUS: 'update:status',
+  UPDATE_CHECK_NOW: 'update:check_now',
+  UPDATE_QUIT_AND_INSTALL: 'update:quit_and_install',
 } as const;
+
+export type UpdateStatusEvent =
+  | { kind: 'update-available'; version: string }
+  | { kind: 'download-progress'; percent: number }
+  | { kind: 'update-downloaded'; version: string };
 
 export interface WorkHoursConfigDTO {
   enabled: boolean;
@@ -147,4 +157,8 @@ export interface RemirrorAPI {
   anthropicSetModel(modelId: string): Promise<void>;
   anthropicTest(): Promise<{ ok: boolean; error?: string }>;
   anthropicClearKey(): Promise<void>;
+
+  onUpdateStatus(cb: (e: UpdateStatusEvent) => void): () => void;
+  updateCheckNow(): Promise<void>;
+  updateQuitAndInstall(): Promise<void>;
 }

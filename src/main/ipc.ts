@@ -28,6 +28,7 @@ import { regenStatus } from './brief/regen-policy';
 import { hasAnthropicKey, writeAnthropicKey, clearAnthropicKey } from './anthropic/key';
 import { testConnection } from './anthropic/client';
 import { MODEL_IDS } from '@shared/anthropic-models';
+import { checkForUpdatesNow, quitAndInstall } from './updater';
 
 // ── IPC input validation helpers ─────────────────────────────────────────────
 function assertString(value: unknown, name: string, maxLen = 10_000): string {
@@ -379,6 +380,14 @@ export function registerIpc(engine: CaptureEngine): void {
 
   ipcMain.handle(IPC.ANTHROPIC_CLEAR_KEY, (): void => {
     clearAnthropicKey();
+  });
+
+  // Updates
+  ipcMain.handle(IPC.UPDATE_CHECK_NOW, async (): Promise<void> => {
+    await checkForUpdatesNow();
+  });
+  ipcMain.handle(IPC.UPDATE_QUIT_AND_INSTALL, (): void => {
+    quitAndInstall();
   });
 }
 
