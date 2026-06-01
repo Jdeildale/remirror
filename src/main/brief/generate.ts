@@ -3,6 +3,7 @@ import { getDatabase } from '../db/index';
 import { store } from '../store';
 import { assembleBriefPayload } from './assemble-payload';
 import { streamBriefGeneration } from '../anthropic/stream';
+import type { StreamMessage } from '../anthropic/stream';
 import { SYSTEM_PROMPT_V1, bannedVocabRegenPrompt, parseFailRegenPrompt } from './prompts/v1';
 import { parseBriefMarkdown } from './parse-markdown';
 import { parseStructuredTail } from './parse-tail';
@@ -37,8 +38,8 @@ export async function generateBrief(generationId: string, originSenderId: number
   const now = new Date();
   const date = isoDate(now);
 
-  // Increment the user-visible generation count BEFORE the stream begins.
-  // If a brief already exists, +1. If not, this generation is the first → count = 1.
+  // Snapshot existing generation count BEFORE streaming.
+  // Only incremented on success — fallback exhaustion does NOT bump the count (D.5).
   const existing = repo.findByDate(date);
   const userGenCount = (existing?.generationCount ?? 0) + 1;
 
@@ -46,38 +47,54 @@ export async function generateBrief(generationId: string, originSenderId: number
     workHours: store.get('workHours'),
     goal: store.get('weeklyGoal') ?? null,
   });
-  const userMessage = JSON.stringify(payload);
+  const userPayloadJson = JSON.stringify(payload);
 
-  let systemPrompt: string = SYSTEM_PROMPT_V1;
-  let attempt = 0;
-  let rawMarkdown = '';
-  let inputTokens = 0;
-  let outputTokens = 0;
+  // D.6: accumulate token counts across all auto-regen attempts
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
   let model = '';
   let promptVersion = '';
+  let rawMarkdown = '';
+
+  // D.8: wall-clock cap — abort loop after 90s
+  const startedAt = Date.now();
+
+  // D.2: multi-turn messages array — assistant bad output + user correction are appended on regen
+  const messages: StreamMessage[] = [{ role: 'user', content: userPayloadJson }];
+
+  let attempt = 0;
 
   while (attempt < MAX_AUTO_REGENS_FOR_VIOLATIONS) {
+    // D.8: wall-clock cap
+    if (Date.now() - startedAt > 90_000) {
+      log.warn(`Brief generation wall-clock cap (90s) exceeded after ${attempt} attempts; falling back`);
+      break;
+    }
+
     attempt += 1;
 
-    // Stream
     const result = await streamBriefGeneration(
-      userMessage,
+      messages,
       {
         onTextDelta: delta => sendToOrigin(originSenderId, IPC.BRIEF_STREAM, { kind: 'text_delta', generationId, delta }),
       },
-      systemPrompt,
+      SYSTEM_PROMPT_V1,
     );
     rawMarkdown = result.rawMarkdown;
-    inputTokens = result.inputTokens;
-    outputTokens = result.outputTokens;
+    // D.6: accumulate, not overwrite
+    totalInputTokens += result.inputTokens;
+    totalOutputTokens += result.outputTokens;
     model = result.model;
     promptVersion = result.promptVersion;
 
-    // Gate
+    // Gate: banned vocab
     const gate = gateBrief(rawMarkdown);
     if (!gate.ok) {
       log.warn(`Brief attempt ${attempt}: banned vocab violations: ${gate.violatedWords.join(', ')}. Regenerating.`);
-      systemPrompt = SYSTEM_PROMPT_V1 + '\n\n' + bannedVocabRegenPrompt(gate.violatedWords);
+      const regenInstruction = bannedVocabRegenPrompt(gate.violatedWords);
+      // D.2: append prior assistant output + correction request
+      messages.push({ role: 'assistant', content: rawMarkdown });
+      messages.push({ role: 'user', content: regenInstruction });
       continue;
     }
 
@@ -85,20 +102,31 @@ export async function generateBrief(generationId: string, originSenderId: number
     const parse = parseBriefMarkdown(rawMarkdown);
     if (!parse.ok) {
       log.warn(`Brief attempt ${attempt}: parse failed, missing: ${parse.missing!.join(', ')}. Regenerating.`);
-      systemPrompt = SYSTEM_PROMPT_V1 + '\n\n' + parseFailRegenPrompt(parse.missing!);
+      const regenInstruction = parseFailRegenPrompt(parse.missing!);
+      messages.push({ role: 'assistant', content: rawMarkdown });
+      messages.push({ role: 'user', content: regenInstruction });
       continue;
     }
 
-    // Success
+    // D.7: also require structured tail — retry if missing
     const tail = parseStructuredTail(rawMarkdown);
+    if (tail === null) {
+      log.warn(`Brief attempt ${attempt}: structured tail missing or invalid. Regenerating.`);
+      const regenInstruction = parseFailRegenPrompt(['structured_tail_json']);
+      messages.push({ role: 'assistant', content: rawMarkdown });
+      messages.push({ role: 'user', content: regenInstruction });
+      continue;
+    }
+
+    // All checks passed — store and return
     const brief: DailyBriefDTO = {
       date,
       generatedAt: Date.now(),
       generationCount: userGenCount,
       model,
       promptVersion,
-      inputTokens,
-      outputTokens,
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
       headline: parse.sections!.headline,
       story: parse.sections!.story,
       whatHeld: parse.sections!.whatHeld,
@@ -112,16 +140,24 @@ export async function generateBrief(generationId: string, originSenderId: number
     return brief;
   }
 
-  // All auto-regen attempts exhausted. Store what we have with a warning.
-  log.warn(`Brief generation exhausted ${MAX_AUTO_REGENS_FOR_VIOLATIONS} auto-regen attempts; storing with warning`);
-  const fallbackBrief: DailyBriefDTO = {
+  // D.5: exhausted fallback — do NOT increment generationCount (skip upsert, emit error only).
+  // The user retains their full regen budget for a brief they never received.
+  log.warn(`Brief generation exhausted ${MAX_AUTO_REGENS_FOR_VIOLATIONS} auto-regen attempts; NOT storing, emitting error`);
+  sendToOrigin(originSenderId, IPC.BRIEF_STREAM, {
+    kind: 'error',
+    generationId,
+    message: `Brief generation could not produce a compliant response after ${MAX_AUTO_REGENS_FOR_VIOLATIONS} attempts. Please retry manually.`,
+    retryable: true,
+  });
+  // Return a minimal stub so callers don't crash — not stored in DB
+  return {
     date,
     generatedAt: Date.now(),
-    generationCount: userGenCount,
+    generationCount: existing?.generationCount ?? 0,
     model,
     promptVersion,
-    inputTokens,
-    outputTokens,
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
     headline: '⚠ Auto-regeneration exhausted',
     story: rawMarkdown,
     whatHeld: '',
@@ -130,12 +166,4 @@ export async function generateBrief(generationId: string, originSenderId: number
     rawMarkdown,
     structuredTail: null,
   };
-  repo.upsert(fallbackBrief);
-  sendToOrigin(originSenderId, IPC.BRIEF_STREAM, {
-    kind: 'error',
-    generationId,
-    message: `Brief generation could not produce a compliant response after ${MAX_AUTO_REGENS_FOR_VIOLATIONS} attempts. Raw response stored — review and retry manually.`,
-    retryable: true,
-  });
-  return fallbackBrief;
 }
