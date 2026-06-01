@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRemirror } from '../hooks/useRemirror';
 import type { WorkHoursConfigDTO } from '@shared/ipc-contract';
 import { Input } from './Input';
@@ -10,6 +10,8 @@ export function WorkHoursEditor() {
   const api = useRemirror();
   const [cfg, setCfg] = useState<WorkHoursConfigDTO | null>(null);
   const [saved, setSaved] = useState(false);
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -17,14 +19,22 @@ export function WorkHoursEditor() {
       const c = await api.getWorkHours();
       if (mounted) setCfg(c);
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
   }, [api]);
 
   async function save(next: WorkHoursConfigDTO) {
     setCfg(next);
-    await api.setWorkHours(next);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      await api.setWorkHours(next);
+      setSaved(true);
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+      savedTimeoutRef.current = setTimeout(() => setSaved(false), 1500);
+    }, 300);
   }
 
   if (!cfg) return <div className="text-muted">Loading…</div>;
