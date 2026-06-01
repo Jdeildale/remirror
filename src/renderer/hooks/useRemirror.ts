@@ -7,5 +7,11 @@ declare global {
 }
 
 export function useRemirror(): RemirrorAPI {
-  return window.remirror;
+  const api = window.remirror;
+  if (!api) {
+    throw new Error(
+      'Preload not loaded — Remirror IPC unavailable. Reload the window or check the console for preload errors.',
+    );
+  }
+  return api;
 }
