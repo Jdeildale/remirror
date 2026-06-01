@@ -31,6 +31,7 @@ export class CalendarSync extends EventEmitter {
   private lastSyncAt: number | null = null;
   private lastError: string | null = null;
   private lastSyncAttemptAt: number = 0;
+  private cooldownUntil: number = 0;
 
   constructor() {
     super();
@@ -57,6 +58,10 @@ export class CalendarSync extends EventEmitter {
   /** Manual sync trigger. Returns true on success. */
   async syncNow(): Promise<boolean> {
     if (this.running) return false;
+    if (Date.now() < this.cooldownUntil) {
+      log.info(`Calendar syncNow on cooldown until ${new Date(this.cooldownUntil).toISOString()}`);
+      return false;
+    }
     if (Date.now() - this.lastSyncAttemptAt < 60_000) {
       log.info('Calendar syncNow skipped: < 60s since last attempt');
       return false;
@@ -117,6 +122,14 @@ export class CalendarSync extends EventEmitter {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const status = (err as any)?.response?.status ?? (err as any)?.code;
+      if (status === 429) {
+        const retryAfterHeader = (err as any)?.response?.headers?.['retry-after'];
+        const retryAfter = parseInt(retryAfterHeader ?? '', 10);
+        const delayMs =
+          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 60_000;
+        this.cooldownUntil = Date.now() + delayMs;
+        log.warn(`Calendar API rate-limited; cooldown ${delayMs}ms`);
+      }
       const isRevoked =
         msg.includes('invalid_grant') ||
         status === 401;
