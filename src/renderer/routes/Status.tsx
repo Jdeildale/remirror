@@ -31,6 +31,7 @@ export function Status({ tab, onTabChange }: Props) {
   const api = useRemirror();
   const [status, setStatus] = useState<EngineStatus>('stopped');
   const [workHours, setWorkHours] = useState<WorkHoursConfigDTO | null>(null);
+  const [pauseResumeBusy, setPauseResumeBusy] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -77,7 +78,16 @@ export function Status({ tab, onTabChange }: Props) {
         </div>
         <Button
           variant="ghost"
-          onClick={() => status === 'paused' ? api.resumeCapture() : api.pauseCapture()}
+          disabled={pauseResumeBusy}
+          onClick={async () => {
+            setPauseResumeBusy(true);
+            try {
+              if (status === 'paused') await api.resumeCapture();
+              else await api.pauseCapture();
+            } finally {
+              setPauseResumeBusy(false);
+            }
+          }}
         >
           {status === 'paused' ? 'Resume' : 'Pause'}
         </Button>
