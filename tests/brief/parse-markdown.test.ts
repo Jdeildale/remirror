@@ -69,6 +69,27 @@ t
     expect(result.sections!.tomorrowFirst90.trim()).toBe('t');
   });
 
+  it('rejects ### (h3) headings — deeper hashes must not match ## patterns', () => {
+    // All five headings written with ### should fail to parse (none recognised as h2).
+    const md = `### Truth headline
+foo
+
+### Today's story
+bar
+
+### What held
+h
+
+### What fragmented
+f
+
+### Tomorrow's first 90
+t`;
+    const result = parseBriefMarkdown(md);
+    expect(result.ok).toBe(false);
+    expect(result.missing).toEqual(['headline', 'story', 'what_held', 'what_fragmented', 'tomorrow_first_90']);
+  });
+
   it('is case-insensitive on heading text but preserves body case', () => {
     const md = `## TRUTH HEADLINE\nFoo Bar\n\n## TODAY'S STORY\nThe Story\n\n## WHAT HELD\nh\n\n## WHAT FRAGMENTED\nf\n\n## TOMORROW'S FIRST 90\nt`;
     const result = parseBriefMarkdown(md);

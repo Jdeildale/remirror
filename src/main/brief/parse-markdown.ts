@@ -9,11 +9,11 @@ export interface ParsedSections {
 export type SectionKey = keyof ParsedSections;
 
 const HEADING_PATTERNS: Array<{ key: SectionKey; pattern: RegExp }> = [
-  { key: 'headline',         pattern: /^##\s*truth\s+headline\s*$/im },
-  { key: 'story',            pattern: /^##\s*today'?s?\s+story\s*$/im },
-  { key: 'whatHeld',         pattern: /^##\s*what\s+held\s*$/im },
-  { key: 'whatFragmented',   pattern: /^##\s*what\s+fragmented\s*$/im },
-  { key: 'tomorrowFirst90',  pattern: /^##\s*tomorrow'?s?\s+first\s+90\s*$/im },
+  { key: 'headline',         pattern: /^##(?!#)\s*truth\s+headline\s*$/im },
+  { key: 'story',            pattern: /^##(?!#)\s*today'?s?\s+story\s*$/im },
+  { key: 'whatHeld',         pattern: /^##(?!#)\s*what\s+held\s*$/im },
+  { key: 'whatFragmented',   pattern: /^##(?!#)\s*what\s+fragmented\s*$/im },
+  { key: 'tomorrowFirst90',  pattern: /^##(?!#)\s*tomorrow'?s?\s+first\s+90\s*$/im },
 ];
 
 export interface ParseResult {
