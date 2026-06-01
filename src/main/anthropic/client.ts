@@ -3,6 +3,11 @@ import { readAnthropicKey } from './key';
 import { store } from '../store';
 import log from '../log';
 
+/** Scrub any Anthropic API key from a string before logging or surfacing it. */
+function scrubKey(text: string): string {
+  return text.replace(/sk-ant-[A-Za-z0-9_-]+/g, 'sk-ant-***');
+}
+
 /**
  * Returns a configured Anthropic SDK client. Throws if no key is stored.
  */
@@ -41,14 +46,18 @@ export async function testConnection(): Promise<{ ok: true } | { ok: false; erro
 }
 
 export function anthropicErrorMessage(err: unknown): string {
+  let msg: string;
   if (err && typeof err === 'object') {
     const e = err as { status?: number; message?: string; error?: { message?: string } };
-    if (e.status === 401) return 'Invalid API key. Update it in Settings.';
-    if (e.status === 429) return 'Rate limited by Anthropic. Try again in a moment.';
-    if (e.status === 403) return 'API key lacks permission for the selected model.';
-    if (e.status && e.status >= 500) return 'Anthropic service unavailable. Try again later.';
-    if (e.error?.message) return e.error.message;
-    if (e.message) return e.message;
+    if (e.status === 401) msg = 'Invalid API key. Update it in Settings.';
+    else if (e.status === 429) msg = 'Rate limited by Anthropic. Try again in a moment.';
+    else if (e.status === 403) msg = 'API key lacks permission for the selected model.';
+    else if (e.status && e.status >= 500) msg = 'Anthropic service unavailable. Try again later.';
+    else if (e.error?.message) msg = e.error.message;
+    else if (e.message) msg = e.message;
+    else msg = String(err);
+  } else {
+    msg = String(err);
   }
-  return String(err);
+  return scrubKey(msg);
 }
