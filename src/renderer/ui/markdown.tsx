@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 // Tiny, opinionated Markdown subset renderer for Claude's brief output.
 // Supports: ## headings, paragraphs, single line breaks via two trailing spaces,
@@ -7,7 +7,7 @@ import React from 'react';
 interface Props { source: string; className?: string }
 
 export function Markdown({ source, className }: Props) {
-  const blocks = source.replace(/\r\n/g, '\n').split(/\n{2,}/);
+  const blocks = useMemo(() => source.replace(/\r\n/g, '\n').split(/\n{2,}/), [source]);
   return (
     <div className={className}>
       {blocks.map((block, i) => {
@@ -46,9 +46,12 @@ function renderInline(text: string): React.ReactNode[] {
       remaining = remaining.slice(italic[0].length);
       continue;
     }
-    // Consume a single character of plain text
-    tokens.push({ type: 'text', content: remaining[0] });
-    remaining = remaining.slice(1);
+    // Consume a chunk of plain text up to the next special character (linear time)
+    const nextSpecial = remaining.search(/[*`]/);
+    const chunkEnd = nextSpecial === -1 ? remaining.length : nextSpecial;
+    tokens.push({ type: 'text', content: remaining.slice(0, chunkEnd) });
+    remaining = remaining.slice(chunkEnd);
+    if (remaining.length === 0) break; // safety
   }
   // Merge consecutive text tokens for fewer DOM nodes
   const merged: Array<{ type: 'text' | 'bold' | 'italic' | 'code'; content: string }> = [];
