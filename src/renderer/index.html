@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' http://localhost:5173 ws://localhost:5173; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:5173 ws://localhost:5173;">
     <title>Remirror</title>
     <!-- Inline SVG favicon (white logo for dark UI) — no asset fetch needed. -->
     <link
