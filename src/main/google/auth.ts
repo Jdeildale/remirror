@@ -15,6 +15,9 @@ import log from '../log';
 const { OAuth2Client } = Auth;
 type OAuth2Client = Auth.OAuth2Client;
 
+const ENC_PREFIX = 'enc:';
+const PLN_PREFIX = 'pln:';
+
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly'];
 
 function clientId(): string {
@@ -32,25 +35,36 @@ function clientSecret(): string {
 function readStoredRefreshToken(): string | undefined {
   const stored = store.get('google').refreshToken;
   if (!stored) return undefined;
-  try {
-    if (safeStorage.isEncryptionAvailable()) {
-      return safeStorage.decryptString(Buffer.from(stored, 'base64'));
+  if (stored.startsWith(ENC_PREFIX)) {
+    try {
+      return safeStorage.decryptString(Buffer.from(stored.slice(ENC_PREFIX.length), 'base64'));
+    } catch (err) {
+      log.warn('Google refresh token decryption failed — keyring state may have changed. Token is unusable; user must reconnect.', err);
+      return undefined;
     }
-    return stored;
-  } catch (err) {
-    log.warn('Failed to decrypt Google refresh token; treating as missing', err);
+  }
+  if (stored.startsWith(PLN_PREFIX)) {
+    return stored.slice(PLN_PREFIX.length);
+  }
+  // Legacy unprefixed format — treat as base64-encrypted (matches old behavior)
+  try {
+    return safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(stored, 'base64')) : stored;
+  } catch {
+    log.warn('Legacy Google refresh token format failed to decrypt — user must reconnect');
     return undefined;
   }
 }
 
 function writeRefreshToken(token: string): void {
   const google = store.get('google');
+  let toStore: string;
   if (safeStorage.isEncryptionAvailable()) {
-    const encrypted = safeStorage.encryptString(token).toString('base64');
-    store.set('google', { ...google, refreshToken: encrypted });
+    toStore = ENC_PREFIX + safeStorage.encryptString(token).toString('base64');
   } else {
-    store.set('google', { ...google, refreshToken: token });
+    toStore = PLN_PREFIX + token;
+    log.warn('safeStorage encryption unavailable — Google refresh token stored in plaintext');
   }
+  store.set('google', { ...google, refreshToken: toStore });
 }
 
 export function hasStoredAuth(): boolean {
