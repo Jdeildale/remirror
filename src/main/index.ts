@@ -14,6 +14,7 @@ import { CalendarSync } from './calendar/sync';
 import { hasStoredAuth } from './google/auth';
 import { dailyStatsCache } from './stats/cache';
 import { setupAutoUpdater } from './updater';
+import { initAutoLaunchOnce } from './auto-launch';
 import { IPC } from '@shared/ipc-contract';
 
 declare global {
@@ -89,6 +90,9 @@ app.whenReady().then(async () => {
     } else {
       engine.start();
     }
+
+    // Auto-launch on Windows login (one-time, default ON for new installs)
+    initAutoLaunchOnce();
 
     // Auto-update: no-op in dev (no metadata file in out/); checks GitHub Releases in production
     setupAutoUpdater();

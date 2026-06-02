@@ -21,6 +21,10 @@ type Prefs = {
     apiKey?: string;  // safeStorage-encrypted base64
     model: string;    // one of MODEL_IDS values
   };
+  autoLaunch?: {
+    initialized: boolean;  // true after first-install one-time setup
+    enabled: boolean;      // mirror of OS-level openAtLogin
+  };
 };
 
 export const store = new Store<Prefs>({

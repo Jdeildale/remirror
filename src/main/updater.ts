@@ -5,6 +5,7 @@ const { autoUpdater } = electronUpdater;
 import { BrowserWindow } from 'electron';
 import log from './log';
 import { IPC } from '@shared/ipc-contract';
+import { notifyUpdateDownloaded } from './tray';
 
 /**
  * Initializes the auto-update flow against the configured publish provider
@@ -47,6 +48,8 @@ export function setupAutoUpdater(): void {
   autoUpdater.on('update-downloaded', (info) => {
     log.info(`autoUpdater: update downloaded — ${info.version}; will install on quit`);
     broadcast({ kind: 'update-downloaded', version: info.version });
+    // Surface a tray "Restart and update" item + balloon notification
+    notifyUpdateDownloaded(info.version);
   });
 
   autoUpdater.on('error', (err) => {
