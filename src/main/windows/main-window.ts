@@ -11,6 +11,11 @@ let win: BrowserWindow | null = null;
 export function openMainWindow(): BrowserWindow {
   if (win && !win.isDestroyed()) {
     if (win.isMinimized()) win.restore();
+    // CRITICAL: must call show() before focus() — a hidden window (which is what
+    // we have after the X-button close handler ran) can't be focused into
+    // visibility. Without this, clicking "Open Remirror" in the tray after
+    // closing the window appears to do nothing.
+    if (!win.isVisible()) win.show();
     win.focus();
     return win;
   }
