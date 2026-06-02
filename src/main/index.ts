@@ -1,6 +1,26 @@
 import 'dotenv/config';
 import { app, BrowserWindow, dialog } from 'electron';
 import path from 'path';
+import dotenv from 'dotenv';
+import fs from 'fs';
+
+// In addition to the .env in the working directory (loaded by `dotenv/config`
+// above — works in dev), also load %APPDATA%\remirror\.env so the installed
+// production app picks up the user's Google OAuth credentials from a stable
+// per-user location. This lets the same .env survive reinstalls, since
+// `%APPDATA%\remirror\` is the same directory used for the DB + logs.
+//
+// Variables already set by the first dotenv call (or the OS environment) are
+// NOT overwritten — that's dotenv's default behavior.
+try {
+  const userDataEnvPath = path.join(app.getPath('userData'), '.env');
+  if (fs.existsSync(userDataEnvPath)) {
+    dotenv.config({ path: userDataEnvPath });
+  }
+} catch {
+  // app.getPath('userData') can throw if called before app is ready in some
+  // edge cases. Silent fallback — the working-dir .env may still be loaded.
+}
 import { BRAND } from '@shared/branding';
 import log, { configureFileTransport } from './log';
 import { openDatabase, getDatabase, closeDatabase } from './db/index';
