@@ -1,4 +1,7 @@
-import { autoUpdater } from 'electron-updater';
+// electron-updater is CommonJS-only — in Node ESM (`"type": "module"` in package.json),
+// named imports from CJS aren't supported. Use default import + destructure.
+import electronUpdater from 'electron-updater';
+const { autoUpdater } = electronUpdater;
 import { BrowserWindow } from 'electron';
 import log from './log';
 import { IPC } from '@shared/ipc-contract';
