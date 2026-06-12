@@ -1,6 +1,6 @@
 {
   "name": "remirror",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "ADHD-aware screen-attention recorder. All data local.",
   "main": "out/main/index.js",
   "type": "module",

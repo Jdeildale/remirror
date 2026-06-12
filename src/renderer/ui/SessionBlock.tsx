@@ -10,72 +10,50 @@ interface Props {
   isLongestToday: boolean;
 }
 
-// Color stays project-driven so a quick visual scan still distinguishes
-// "directional" project time from "everything else" time. Unclassified
-// sessions (no project match) render in warm grey — they still get a
-// readable NAME from the window title, but the color says "this wasn't
-// in a defined project."
-function colorForProject(label: string | null): string {
-  if (!label || label === 'unclassified') return 'bg-unclassified';
-  switch (label.toLowerCase()) {
-    case 'oracle': return 'bg-accent';
-    case "jackie's website":
-    case 'jackies website': return 'bg-purple';
-    case 'twb course':
-    case 'twb': return 'bg-green';
-    default: return 'bg-accent';
-  }
-}
-
-function textOnColor(label: string | null): string {
-  if (!label || label === 'unclassified') return 'text-text';
-  return 'text-bg-deep';
-}
-
-// Lowered from 20m → 10m so more sessions get readable labels, matching the
-// "record of everything I did" intent. Anything shorter is too thin a sliver
-// to fit text and would visually clutter.
-const LABEL_THRESHOLD_MS = 10 * 60_000;
+/**
+ * v0.3.8 design: projects are no longer the primary axis. The mirror is the
+ * trail of every screen, named. Every session ≥ 1 min displays its window
+ * title; shorter sessions appear as thin slivers with hover-only details.
+ *
+ * Color is muted across the board — warm grey for everything. The user's
+ * "directional vs everything else" lens didn't survive contact with real
+ * usage (1700+ switches per day), where the project category was always
+ * "unclassified". Color now exists only to give blocks shape, not meaning.
+ */
+const LABEL_THRESHOLD_MS = 1 * 60_000;
+const TINY_THRESHOLD_MS = 3 * 60_000; // below this, just title (no minute count)
 
 export function SessionBlock({ session, pixelsPerMs, topOffsetPx, isLongestToday }: Props) {
   if (!session.end_time) return null;
   const effectiveMs = Math.max(0, session.end_time - session.start_time - session.paused_ms);
   const heightPx = Math.max(4, Math.round(effectiveMs * pixelsPerMs));
   const showLabel = effectiveMs >= LABEL_THRESHOLD_MS;
-  const colorClass = colorForProject(session.project_label);
-  const textColor = textOnColor(session.project_label);
   const minutes = Math.round(effectiveMs / 60_000);
-
-  // The display label is the cleaned window title — this is the "record of
-  // everything I did" surface. The project label, when matched, is shown as
-  // a small caps tag below so directional intent is still visible.
   const cleanedTitle = cleanWindowTitle(session.window_title, session.app_name);
-  const hasProjectMatch =
-    session.project_label && session.project_label !== 'unclassified';
 
   return (
     <div
       className={clsx(
-        'absolute left-[30px] right-[18px] rounded-[5px] overflow-hidden',
-        colorClass,
-        textColor,
-        showLabel ? 'px-3 py-1.5 font-semibold' : 'px-2',
+        'absolute left-[30px] right-[18px] rounded-[3px] overflow-hidden',
+        'bg-unclassified text-text',
+        showLabel ? (effectiveMs >= TINY_THRESHOLD_MS ? 'px-2 py-1 font-medium' : 'px-2 leading-none flex items-center') : 'px-2',
       )}
-      style={{ top: `${topOffsetPx}px`, height: `${heightPx}px` }}
+      style={{ top: `${topOffsetPx}px`, height: `${heightPx}px`, fontSize: effectiveMs >= TINY_THRESHOLD_MS ? '12px' : '10px' }}
       title={`${session.window_title ?? '(no title)'} · ${session.app_name ?? ''} · ${minutes} min`}
     >
       {showLabel && (
         <>
-          <div className="truncate">
-            {cleanedTitle} · {minutes} min
-          </div>
-          {hasProjectMatch && (
-            <div className="text-[9px] uppercase tracking-[1px] opacity-70 mt-0.5 truncate">
-              {session.project_label}
+          {effectiveMs >= TINY_THRESHOLD_MS ? (
+            <div className="truncate">
+              {cleanedTitle} <span className="opacity-60 font-normal">· {minutes} min</span>
+            </div>
+          ) : (
+            <div className="truncate text-quiet">
+              {cleanedTitle}
             </div>
           )}
           {isLongestToday && (
-            <span className="absolute right-2.5 top-1.5 text-[9px] bg-bg-deep text-accent px-1.5 py-0.5 rounded-[3px] font-bold">
+            <span className="absolute right-2 top-1 text-[9px] bg-bg-deep text-accent px-1.5 py-0.5 rounded-[3px] font-bold">
               longest today
             </span>
           )}
